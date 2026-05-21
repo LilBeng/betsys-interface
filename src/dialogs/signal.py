@@ -9,7 +9,8 @@ from betsys import (
     BetCode,
     get_total_bet_name,
     MatchCode,
-    SignalTypeCode, get_signal_type_name
+    SignalTypeCode,
+    get_signal_type_name
 )
 from qasync import asyncSlot
 
@@ -26,7 +27,7 @@ class CalculatorWidget(QWidget):
 
         self._id = QCheckBox(self.tr("Идентификатор:"), self)
         self._priority = QCheckBox(self.tr("Приоритет:"), self)
-        self._type = QCheckBox(self.tr("Тип:"), self)
+        self._type = QCheckBox(self.tr("Сигнал:"), self)
         self._bet = QCheckBox(self.tr("Ставка:"), self)
 
         self._scripts = QComboBox(self)

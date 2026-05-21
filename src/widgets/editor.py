@@ -28,7 +28,7 @@ from betsys import (
     MatchCode,
     get_match_name,
     SignalTypeCode,
-    get_signal_type_name
+    get_signal_type_name, get_total_bet_name
 )
 
 from src.dialogs.property import PromptDialog
@@ -144,6 +144,10 @@ class PromptEditorWidget(QWidget):
             QIcon(":/resources/icons/volleyball.png"),
         ]
 
+        self._bet_code = QComboBox(self)
+        for bet_code in BetCode:
+            self._bet_code.addItem(get_total_bet_name(bet_code, AppLang.code), bet_code)
+
         self._match_code = QComboBox(self)
         for match_code, icon in zip(MatchCode, icons):
             self._match_code.addItem(icon, get_match_name(match_code, AppLang.code), match_code)
@@ -152,6 +156,7 @@ class PromptEditorWidget(QWidget):
         for signal_type_code in SignalTypeCode:
             self._signal_type_codes.addItem(get_signal_type_name(signal_type_code, AppLang.code), signal_type_code)
 
+        self._bet_code.setCurrentText(get_total_bet_name(model.bet_code, AppLang.code))
         self._match_code.setCurrentText(get_match_name(model.match_code, AppLang.code))
         self._signal_type_codes.setCurrentText(get_signal_type_name(model.signal_type_code, AppLang.code))
 
@@ -172,6 +177,7 @@ class PromptEditorWidget(QWidget):
         param_layout.setVerticalSpacing(15)
         param_layout.setHorizontalSpacing(15)
         param_layout.addRow(self.tr("Тип матча:"), self._match_code)
+        param_layout.addRow(self.tr("Тип ставки:"), self._bet_code)
         param_layout.addRow(self.tr("Тип сигнала:"), self._signal_type_codes)
         param_layout.addRow(self.tr("Номер:"), self._number)
         param_layout.addRow(self.tr("Параметры матча:"), self._config)
@@ -197,6 +203,7 @@ class PromptEditorWidget(QWidget):
     @Slot()
     def save_model(self) -> None:
         self.model.number = self._number.value()
+        self.model.bet_code = self._bet_code.currentData()
         self.model.match_code = self._match_code.currentData()
         self.model.signal_type_code = self._signal_type_codes.currentData()
         self.model.text = self._text.toPlainText()

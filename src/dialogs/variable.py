@@ -134,7 +134,7 @@ class BaseH2HDialog(BaseVarDialog):
 
         self.central_layout.addRow(self.tr("Команда:"), self._team_code)
         self.central_layout.addRow(self.tr("Игра:"), self._game_code)
-        self.central_layout.addRow(self.tr("Тип:"), self._encounter_code)
+        self.central_layout.addRow(self.tr("Тип игры:"), self._encounter_code)
         self.central_layout.addRow(self.tr("Ставка:"), self._bet)
         self.central_layout.addRow(self.tr("Текущая лига:"), self._only_this_league)
         self.central_layout.addRow(self._is_interval, self._interval_layout)

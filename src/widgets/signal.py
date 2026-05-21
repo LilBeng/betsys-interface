@@ -98,7 +98,7 @@ class SignalWidget(QFrame):
         center_layout = QFormLayout()
         center_layout.setHorizontalSpacing(25)
         center_layout.addRow(
-            self.tr("Тип:"),
+            self.tr("Тип сигнала:"),
             QLabel(get_signal_type_name(signal.signal_property.signal_type_code, AppLang.code))
         )
         center_layout.addRow(
@@ -132,10 +132,7 @@ class SignalWidget(QFrame):
             center_layout.addRow(self.tr("Вероятности:"), QLabel(self.tr("Нет данных")))
 
         if signal.recommendation:
-            value = QLabel(
-                f"{get_risk_name(signal.recommendation.risk_code, AppLang.code)} "
-                f"({signal.recommendation.confidence:.%})"
-            )
+            value = QLabel(f"{get_risk_name(signal.recommendation.risk_code, AppLang.code)}")
             self._info = create_icon_push_button(
                 icon=QIcon(":/resources/icons/info.png"),
                 tooltip=self.tr("Информация"),
@@ -145,7 +142,7 @@ class SignalWidget(QFrame):
             recommendation_layout = QHBoxLayout()
             recommendation_layout.addWidget(value)
             recommendation_layout.addWidget(self._info)
-            center_layout.addRow(QLabel(self.tr("Рекомендация:")), recommendation_layout)
+            center_layout.addRow(QLabel(self.tr("Риск:")), recommendation_layout)
 
         layout.addWidget(self._top_widget)
         layout.addLayout(center_layout)

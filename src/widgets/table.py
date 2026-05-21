@@ -183,6 +183,7 @@ class PromptTableWidget(BaseTableWidget):
             self.tr("Идентификатор"),
             self.tr("Номер"),
             self.tr("Тип игры"),
+            self.tr("Тип ставки"),
             self.tr("Тип сигнала")
         ]
 
@@ -198,6 +199,7 @@ class PromptTableWidget(BaseTableWidget):
                     model.id,
                     model.number,
                     get_match_name(model.match_code, AppLang.code),
+                    get_total_bet_name(model.bet_code, AppLang.code),
                     get_signal_type_name(model.signal_type_code, AppLang.code)
                 ]
         ):
@@ -220,6 +222,7 @@ class PromptTableWidget(BaseTableWidget):
                     model.id,
                     model.number,
                     get_match_name(model.match_code, AppLang.code),
+                    get_total_bet_name(model.bet_code, AppLang.code),
                     get_signal_type_name(model.signal_type_code, AppLang.code)
                 ]
         ):

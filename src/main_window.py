@@ -5,8 +5,8 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt, QSettings, QByteArray, Slot, QPoint, QThread
 from PySide6.QtCore import Signal as pysideSignal
-from PySide6.QtGui import QIcon, QCloseEvent
-from PySide6.QtWidgets import QMainWindow, QDockWidget, QScrollArea, QProgressBar, QMenu
+from PySide6.QtGui import QIcon, QCloseEvent, QScreen
+from PySide6.QtWidgets import QMainWindow, QDockWidget, QScrollArea, QProgressBar, QMenu, QApplication
 from betsys import (
     __version__,
     DBContext,
@@ -55,6 +55,12 @@ class MainWindow(QMainWindow):
         else:
             self.setWindowTitle(f"Betting System [BetSys v.{__version__}] - Client")
         self.setWindowIcon(QIcon(":/resources/icons/bet_sys.png"))
+
+        self.setGeometry(0, 0, 800, 600)
+
+        geo = self.frameGeometry()
+        geo.moveCenter(QScreen.availableGeometry(QApplication.primaryScreen()).center())
+        self.move(geo.topLeft())
 
         self.status_bar = self.statusBar()
 

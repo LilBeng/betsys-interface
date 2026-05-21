@@ -66,10 +66,6 @@ class BaseBetLayout(QFormLayout):
         self.addRow(self.tr("Событие:"), self._event_status_codes)
 
     @property
-    def bet_code(self) -> BetCode:
-        return self.bet_code
-
-    @property
     def event_status_code(self) -> EVENT_STATUS_TYPE:
         return self._event_status_codes.currentData()
 

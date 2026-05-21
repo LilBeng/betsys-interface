@@ -4,7 +4,7 @@ import uuid
 from PySide6.QtCore import Qt, Slot, QPoint
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtWidgets import QMenu, QTabWidget
-from betsys import DBContext, AIPromptDBModel, MatchCode, SignalTypeCode
+from betsys import DBContext, AIPromptDBModel, MatchCode, SignalTypeCode, BetCode
 from qasync import asyncSlot
 
 from src.dialogs.dao import BaseDAODialog
@@ -89,7 +89,12 @@ class PromptDAODialog(BaseDAODialog):
     @asyncSlot()
     async def _create_model(self, model: AIPromptDBModel) -> None:
         try:
-            obj = await self.db_context.prompts.get_prompt(model.number, model.match_code, model.signal_type_code)
+            obj = await self.db_context.prompts.get_prompt(
+                model.number,
+                model.bet_code,
+                model.match_code,
+                model.signal_type_code
+            )
             if obj:
                 if obj.id != model.id:
                     _logger.error(f"Model (id={model.id}) - failed to update, key already exists")
@@ -99,6 +104,7 @@ class PromptDAODialog(BaseDAODialog):
             flag = await self.db_context.prompts.add_prompt(
                 id=model.id,
                 number=model.number,
+                bet_code=model.bet_code,
                 match_code=model.match_code,
                 signal_type_code=model.signal_type_code,
                 text=model.text,
@@ -135,7 +141,12 @@ class PromptDAODialog(BaseDAODialog):
     @asyncSlot()
     async def _update_model(self, model: AIPromptDBModel) -> None:
         try:
-            obj = await self.db_context.prompts.get_prompt(model.number, model.match_code, model.signal_type_code)
+            obj = await self.db_context.prompts.get_prompt(
+                model.number,
+                model.bet_code,
+                model.match_code,
+                model.signal_type_code
+            )
             if obj:
                 if obj.id != model.id:
                     _logger.error(f"Model (id={model.id}) - failed to update, key already exists")
@@ -145,6 +156,7 @@ class PromptDAODialog(BaseDAODialog):
             flag = await self.db_context.prompts.update(
                 {"id": model.id},
                 number=model.number,
+                bet_code=model.bet_code,
                 match_code=model.match_code,
                 signal_type_code=model.signal_type_code,
                 text=model.text,
@@ -210,6 +222,7 @@ class PromptDAODialog(BaseDAODialog):
         model = AIPromptDBModel(
             id=str(uuid.uuid4()),
             number=0,
+            bet_code=BetCode.BOTH_TO_SCORE,
             match_code=MatchCode.FOOTBALL,
             signal_type_code=SignalTypeCode.PRE_MATCH,
             text=str()
