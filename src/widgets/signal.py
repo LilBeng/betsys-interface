@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
     QMenu,
     QFileDialog,
     QFrame,
-    QHBoxLayout,
     QDialog
 )
 from betsys import (
@@ -132,17 +131,16 @@ class SignalWidget(QFrame):
             center_layout.addRow(self.tr("Вероятности:"), QLabel(self.tr("Нет данных")))
 
         if signal.recommendation:
-            value = QLabel(f"{get_risk_name(signal.recommendation.risk_code, AppLang.code)}")
             self._info = create_icon_push_button(
                 icon=QIcon(":/resources/icons/info.png"),
                 tooltip=self.tr("Информация"),
                 parent=self
             )
             self._info.clicked.connect(self._show_recommendation_info)
-            recommendation_layout = QHBoxLayout()
-            recommendation_layout.addWidget(value)
-            recommendation_layout.addWidget(self._info)
-            center_layout.addRow(QLabel(self.tr("Риск:")), recommendation_layout)
+
+            self._top_widget.central_layout.addWidget(self._info, alignment=Qt.AlignmentFlag.AlignRight)
+            value = QLabel(f"{get_risk_name(signal.recommendation.risk_code, AppLang.code)}")
+            center_layout.addRow(QLabel(self.tr("Риск:")), value)
 
         layout.addWidget(self._top_widget)
         layout.addLayout(center_layout)

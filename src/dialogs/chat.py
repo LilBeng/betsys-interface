@@ -1,7 +1,6 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QIcon
-from PySide6.QtWidgets import QFrame, QSizePolicy, QVBoxLayout, QLabel, QDialog, QScrollArea, QWidget, QHBoxLayout, \
-    QLayout
+from PySide6.QtWidgets import QFrame, QSizePolicy, QVBoxLayout, QLabel, QDialog, QScrollArea, QWidget, QHBoxLayout
 from betsys import Message, get_role_name, RoleCode
 
 from src.utils.lang import AppLang
@@ -12,10 +11,10 @@ class MessageBubble(QFrame):
         super().__init__(*args, **kwargs)
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setFrameShadow(QFrame.Shadow.Raised)
-        self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setContentsMargins(10, 5, 10, 5)
         layout.setSpacing(5)
 
         role_label = QLabel(get_role_name(message.role, AppLang.code))
@@ -26,6 +25,7 @@ class MessageBubble(QFrame):
         role_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         content_label = QLabel(message.content)
+        content_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         content_label.setWordWrap(True)
         content_label.setTextFormat(Qt.TextFormat.PlainText)
 
@@ -86,7 +86,3 @@ class ChatDialog(QDialog):
                 layout.addStretch()
 
             messages_layout.addLayout(layout)
-
-        messages_layout.addStretch()
-
-        main_layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
