@@ -1,6 +1,6 @@
 from typing import Optional
 
-from PySide6.QtCore import QDate
+from PySide6.QtCore import QDate, Qt
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton
 
 from src.widgets.calendar import DateRangeCalendar
@@ -10,6 +10,7 @@ class DatePickerDialog(QDialog):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setWindowTitle(self.tr("Выбор даты"))
         self.setModal(True)
 

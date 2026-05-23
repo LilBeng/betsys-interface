@@ -1,3 +1,4 @@
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QDialog, QFormLayout, QLayout, QWidget, QDialogButtonBox
 from betsys import Script, VARIABLE_TYPE, get_variable_name
@@ -9,6 +10,7 @@ from src.utils.lang import AppLang
 class BaseDialog(QDialog):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
 
         self.wheel_blocker = WheelBlocker()
         self.installEventFilter(self.wheel_blocker)

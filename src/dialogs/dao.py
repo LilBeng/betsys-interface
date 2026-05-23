@@ -1,6 +1,6 @@
 from typing import Any
 
-from PySide6.QtCore import Signal, Slot, QSize
+from PySide6.QtCore import Signal, Slot, QSize, Qt
 from PySide6.QtGui import QIcon, QScreen
 from PySide6.QtWidgets import QDialog, QApplication, QStatusBar, QProgressBar, QVBoxLayout, QToolBar
 from betsys import DBContext, LeagueDBModel, ScriptDBModel, AIPromptDBModel, MatchDetailsDBModel
@@ -23,6 +23,7 @@ class BaseDAODialog(QDialog):
         self.db_context = db_context
         self.central_widget = central_widget(self)
 
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setWindowTitle(title)
         self.setWindowIcon(icon)
 

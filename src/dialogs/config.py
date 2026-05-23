@@ -158,6 +158,7 @@ class DAOConfigDialog(QDialog):
 
         self.setWindowTitle(self.tr("Настройка конфигурации"))
         self.setWindowIcon(QIcon(":/resources/icons/config.png"))
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
 
         self._db = QComboBox(self)
         for text in ["SQLite", "PostgreSQL"]:

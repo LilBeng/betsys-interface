@@ -27,7 +27,7 @@ from betsys import (
     get_signal_type_name
 )
 
-from src.dialogs.dialog import ChatDialog
+from src.dialogs.chat import ChatDialog
 from src.utils.blocker import WheelBlocker
 from src.utils.button import create_icon_push_button
 from src.utils.lang import AppLang

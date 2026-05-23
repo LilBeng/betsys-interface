@@ -3,7 +3,7 @@ import os
 import traceback
 from typing import Optional, Union
 
-from PySide6.QtCore import QTranslator, QLibraryInfo, QFile, QTextStream
+from PySide6.QtCore import QTranslator, QLibraryInfo, QFile, QTextStream, Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 from betsys import LiteDBConfig, DBContext, MultiDriverConfig, PostgresDBConfig, create_tables
@@ -67,6 +67,7 @@ def load_style_sheet(filename: str) -> str:
 
 def run(only_database: bool = False):
     app = QApplication([])
+    app.setAttribute(Qt.ApplicationAttribute.AA_Use96Dpi, True)
 
     font = QFont("Segoe UI", 12)
     app.setFont(font)

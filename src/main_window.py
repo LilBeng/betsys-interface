@@ -1,4 +1,3 @@
-import ctypes
 import logging
 from functools import partial
 from pathlib import Path
@@ -6,7 +5,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt, QSettings, QByteArray, Slot, QPoint, QThread
 from PySide6.QtCore import Signal as pysideSignal
 from PySide6.QtGui import QIcon, QCloseEvent, QScreen
-from PySide6.QtWidgets import QMainWindow, QDockWidget, QScrollArea, QProgressBar, QMenu, QApplication
+from PySide6.QtWidgets import QMainWindow, QDockWidget, QScrollArea, QProgressBar, QMenu, QApplication, QMessageBox
 from betsys import (
     __version__,
     DBContext,
@@ -409,12 +408,23 @@ class MainWindow(QMainWindow):
         self.console_widget.add_text(text)
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        self._save_config()
-        self._service.shutdown_workers()
 
-        super().closeEvent(event)
+        """Перехват события закрытия окна"""
+        reply = QMessageBox.question(
+            self,
+            self.tr("Выход"),
+            self.tr("Вы уверены, что хотите выйти?"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
 
-        ctypes.windll.kernel32.ExitProcess(0)
+        if reply == QMessageBox.StandardButton.Yes:
+            self._save_config()
+            self._service.shutdown_workers()
+
+            event.accept()
+        else:
+            event.ignore()
 
     async def async_update_progress(self, sender: str, value: int, max_value: int) -> None:
         self.sync_update_progress(value, max_value)
