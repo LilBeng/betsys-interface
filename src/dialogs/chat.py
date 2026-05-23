@@ -36,6 +36,17 @@ class MessageBubble(QFrame):
         timestamp_label.setAlignment(Qt.AlignmentFlag.AlignRight)
 
         layout.addWidget(role_label)
+
+        if message.reasoning_content:
+            reasoning_content_label = QLabel(self.tr("Рассуждение:\n{}\n").format(message.reasoning_content))
+            reasoning_content_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            reasoning_content_label.setWordWrap(True)
+            reasoning_content_font = QFont()
+            reasoning_content_font.setItalic(True)
+            reasoning_content_label.setFont(reasoning_content_font)
+            reasoning_content_label.setTextFormat(Qt.TextFormat.PlainText)
+            layout.addWidget(reasoning_content_label)
+
         layout.addWidget(content_label)
         layout.addWidget(timestamp_label)
 

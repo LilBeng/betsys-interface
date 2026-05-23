@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QWidget,
     QToolBar,
-    QMenu
+    QMenu, QCheckBox
 )
 from betsys import (
     LiteDBConfig,
@@ -41,7 +41,7 @@ from betsys import (
     AIAssistantConfig,
     get_predictor_name,
     APIClientConfig,
-    DialogConfig
+    DialogConfig, ReasoningEffortCode, get_reasoning_effort_name
 )
 
 from src import CONFIG
@@ -453,10 +453,21 @@ class AIConfigBox(QGroupBox):
         self._timeout = QSpinBox(self, minimum=100, maximum=1000)
         self._max_retries = QSpinBox(self, minimum=1, maximum=10)
 
+        self._is_thinking = QCheckBox(self.tr("Уровень рассуждения:"))
+        self._is_thinking.checkStateChanged.connect(self._state_thinking)
+
+        self._reasoning_effort = QComboBox(self)
+        for reasoning_effort_code in ReasoningEffortCode:
+            self._reasoning_effort.addItem(
+                get_reasoning_effort_name(reasoning_effort_code, AppLang.code),
+                reasoning_effort_code
+            )
+
         dialog_box = QGroupBox(title=self.tr("Параметры диалога"))
         dialog_layout = QFormLayout(dialog_box)
         dialog_layout.addRow(self.tr("Модель:"), self._model)
         dialog_layout.addRow(self.tr("Температура:"), self._temperature)
+        dialog_layout.addRow(self._is_thinking, self._reasoning_effort)
 
         api_box = QGroupBox(title=self.tr("Параметры API"))
         api_layout = QFormLayout(api_box)
@@ -478,6 +489,18 @@ class AIConfigBox(QGroupBox):
             self._max_retries.setValue(config.client_config.max_retries)
             self._lang_box.setCurrentText(get_lang_name(config.lang_code))
 
+            if config.dialog_config.reasoning_effort_code is not None:
+                self._is_thinking.setCheckState(Qt.CheckState.Checked)
+                self._reasoning_effort.setCurrentText(
+                    get_reasoning_effort_name(config.dialog_config.reasoning_effort_code, AppLang.code)
+                )
+            else:
+                self._is_thinking.setCheckState(Qt.CheckState.Unchecked)
+        else:
+            self._is_thinking.setCheckState(Qt.CheckState.Unchecked)
+
+        self._state_thinking(self._is_thinking.checkState())
+
         layout = QFormLayout(self)
         layout.addRow(dialog_box)
         layout.addRow(api_box)
@@ -485,11 +508,16 @@ class AIConfigBox(QGroupBox):
 
     @property
     def config(self) -> AIAssistantConfig:
+        if self._is_thinking.checkState() == Qt.CheckState.Checked:
+            reasoning_effort_code = self._reasoning_effort.currentData()
+        else:
+            reasoning_effort_code = None
+
         return AIAssistantConfig(
             dialog_config=DialogConfig(
                 model=self._model.text(),
-                temperature=self._temperature.value()
-
+                temperature=self._temperature.value(),
+                reasoning_effort_code=reasoning_effort_code
             ),
             client_config=APIClientConfig(
                 api_key=self._api_key.text(),
@@ -499,6 +527,13 @@ class AIConfigBox(QGroupBox):
             ),
             lang_code=self._lang_box.currentData()
         )
+
+    @Slot()
+    def _state_thinking(self, state: Qt.CheckState) -> None:
+        if state == Qt.CheckState.Checked:
+            self._reasoning_effort.setEnabled(True)
+        else:
+            self._reasoning_effort.setEnabled(False)
 
 
 class PredictorDialog(QDialog):

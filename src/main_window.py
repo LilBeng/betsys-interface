@@ -1,3 +1,4 @@
+import ctypes
 import logging
 from functools import partial
 from pathlib import Path
@@ -423,6 +424,8 @@ class MainWindow(QMainWindow):
             self._service.shutdown_workers()
 
             event.accept()
+
+            ctypes.windll.kernel32.ExitProcess(0)
         else:
             event.ignore()
 
