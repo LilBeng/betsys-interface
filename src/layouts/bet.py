@@ -84,12 +84,12 @@ class OverUnderLayout(BaseBetLayout):
             self._team_code.addItem(get_team_name(code, AppLang.code), code)
 
         self._is_value = QCheckBox(self.tr("Значение:"))
-        self._is_value.stateChanged.connect(self._state_value)
+        self._is_value.checkStateChanged.connect(self._state_value)
 
         self._value = QDoubleSpinBox(minimum=0.5, maximum=10, singleStep=0.5, decimals=1)
 
         self._is_up_to_time = QCheckBox(self.tr("До минуты:"))
-        self._is_up_to_time.stateChanged.connect(self._state_up_to_time)
+        self._is_up_to_time.checkStateChanged.connect(self._state_up_to_time)
 
         self._up_to_time = QSpinBox(minimum=1, maximum=120, singleStep=1)
 
@@ -140,15 +140,15 @@ class OverUnderLayout(BaseBetLayout):
             self.addRow(self._is_up_to_time, self._up_to_time)
 
     @Slot()
-    def _state_value(self, state: int) -> None:
-        if state == Qt.CheckState.Checked.value:
+    def _state_value(self, state: Qt.CheckState) -> None:
+        if state == Qt.CheckState.Checked:
             self._value.setEnabled(True)
         else:
             self._value.setEnabled(False)
 
     @Slot()
-    def _state_up_to_time(self, state: int) -> None:
-        if state == Qt.CheckState.Checked.value:
+    def _state_up_to_time(self, state: Qt.CheckState) -> None:
+        if state == Qt.CheckState.Checked:
             self._up_to_time.setEnabled(True)
         else:
             self._up_to_time.setEnabled(False)

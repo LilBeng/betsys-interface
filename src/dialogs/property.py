@@ -340,27 +340,27 @@ class PromptDialog(BaseButtonDialog):
         self.setup_wheel_filter(self)
 
     @Slot()
-    def change_table_total(self, flag) -> None:
+    def change_table_total(self, flag: bool) -> None:
         self._is_playing_teams.setEnabled(flag)
 
     @Slot()
-    def change_table_home(self, flag) -> None:
+    def change_table_home(self, flag: bool) -> None:
         self._is_playing_home.setEnabled(flag)
 
     @Slot()
-    def change_table_away(self, flag) -> None:
+    def change_table_away(self, flag: bool) -> None:
         self._is_playing_away.setEnabled(flag)
 
     @Slot()
-    def change_home_matches(self, flag) -> None:
+    def change_home_matches(self, flag: bool) -> None:
         self._count_home_matches.setEnabled(flag)
 
     @Slot()
-    def change_away_matches(self, flag) -> None:
+    def change_away_matches(self, flag: bool) -> None:
         self._count_away_matches.setEnabled(flag)
 
     @Slot()
-    def change_h2h_matches(self, flag) -> None:
+    def change_h2h_matches(self, flag: bool) -> None:
         self._count_h2h_matches.setEnabled(flag)
 
     @Slot()

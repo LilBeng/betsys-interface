@@ -17,7 +17,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QComboBox,
     QSpinBox,
-    QListWidget,
     QVBoxLayout,
     QTableWidget,
     QTableWidgetItem,
@@ -41,10 +40,13 @@ from betsys import (
     AIAssistantConfig,
     get_predictor_name,
     APIClientConfig,
-    DialogConfig, ReasoningEffortCode, get_reasoning_effort_name
+    DialogConfig,
+    ReasoningEffortCode,
+    get_reasoning_effort_name,
+    AutosaveConfig
 )
 
-from src import CONFIG
+from src import CONFIG, AUTOSAVE_DIR
 from src.utils.blocker import WheelBlocker
 from src.utils.button import create_icon_push_button
 from src.utils.lang import AppLang
@@ -307,6 +309,7 @@ class ScraperGroupBox(QGroupBox):
         table_layout.addWidget(self._toolbar)
 
         layout = QVBoxLayout(self)
+        layout.setSpacing(10)
         layout.addLayout(table_layout)
         layout.addLayout(param_layout)
 
@@ -424,6 +427,7 @@ class ForeBetConfigBox(QGroupBox):
             )
 
         layout = QFormLayout(self)
+        layout.setSpacing(25)
         layout.addRow(self.tr("Язык:"), self._lang_box)
         layout.addRow(self.tr("Синхронизация времени:"), self._offset)
 
@@ -445,7 +449,7 @@ class AIConfigBox(QGroupBox):
     """
     def __init__(self, config: Optional[AIAssistantConfig] = None, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.setTitle(get_predictor_name(PredictorCode.AI, AppLang.code))
+        self.setTitle(self.tr("Ассистент"))
 
         self._model = QLineEdit(self)
         self._temperature = QDoubleSpinBox(self, decimals=1, minimum=0.1, maximum=1, singleStep=0.1)
@@ -464,7 +468,7 @@ class AIConfigBox(QGroupBox):
                 reasoning_effort_code
             )
 
-        dialog_box = QGroupBox(title=self.tr("Параметры диалога"))
+        dialog_box = QGroupBox(title=self.tr("Параметры чата"))
         dialog_layout = QFormLayout(dialog_box)
         dialog_layout.addRow(self.tr("Модель:"), self._model)
         dialog_layout.addRow(self.tr("Температура:"), self._temperature)
@@ -537,244 +541,6 @@ class AIConfigBox(QGroupBox):
             self._reasoning_effort.setEnabled(False)
 
 
-class PredictorDialog(QDialog):
-    def __init__(self, config: Optional[Union[ForeBetConfig, AIAssistantConfig]] = None, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.setWindowTitle(self.tr("Прогнозирующая модель"))
-        self.setWindowIcon(QIcon(":/resources/icons/config.png"))
-
-        self._models = QComboBox(self)
-        for code in PredictorCode:
-            self._models.addItem(get_predictor_name(code, AppLang.code), code)
-
-        self._stacked_layout = QStackedLayout()
-
-        if isinstance(config, ForeBetConfig):
-            self._fore_bet_config = ForeBetConfigBox(config, self)
-        else:
-            self._fore_bet_config = ForeBetConfigBox(parent=self)
-
-        if isinstance(config, AIAssistantConfig):
-            self._ai_config = AIConfigBox(config, self)
-        else:
-            self._ai_config = AIConfigBox(parent=self)
-
-        for widget in [self._fore_bet_config, self._ai_config]:
-            self._stacked_layout.addWidget(widget)
-
-        if config:
-            if isinstance(config, ForeBetConfig):
-                self._stacked_layout.setCurrentWidget(self._fore_bet_config)
-            else:
-                self._stacked_layout.setCurrentWidget(self._ai_config)
-
-            self._models.setCurrentIndex(self._stacked_layout.currentIndex())
-            self._models.setEnabled(False)
-
-        add_button = QPushButton(self.tr("Применить"))
-        add_button.clicked.connect(self.accept)
-
-        exit_button = QPushButton(self.tr("Отмена"))
-        exit_button.clicked.connect(self.reject)
-
-        layout_button = QHBoxLayout()
-        layout_button.setAlignment(Qt.AlignmentFlag.AlignRight)
-        layout_button.addWidget(add_button)
-        layout_button.addWidget(exit_button)
-
-        self._dialog_layout = QFormLayout(self)
-        self._dialog_layout.setSizeConstraint(QFormLayout.SizeConstraint.SetFixedSize)
-        self._dialog_layout.setSpacing(15)
-        self._dialog_layout.addRow("Модель:", self._models)
-        self._dialog_layout.addRow(self._stacked_layout)
-        self._dialog_layout.addRow(layout_button)
-
-        self._models.currentIndexChanged.connect(self.change_index)
-
-        self.wheel_blocker = WheelBlocker()
-        self.installEventFilter(self.wheel_blocker)
-
-        self.setup_wheel_filter(self)
-
-    def setup_wheel_filter(self, widget: QWidget) -> None:
-        """
-        Рекурсивно устанавливаем фильтр на все дочерние виджеты
-        """
-        widget.installEventFilter(self.wheel_blocker)
-        for child in widget.findChildren(QWidget):
-            child.installEventFilter(self.wheel_blocker)
-
-    @Slot()
-    def change_index(self, index: int) -> None:
-        self._stacked_layout.setCurrentIndex(index)
-
-    @property
-    def item(self) -> ConfigItem:
-        widget = self._stacked_layout.currentWidget()
-        if isinstance(widget, (ForeBetConfigBox, AIConfigBox)):
-            return ConfigItem(
-                    get_predictor_name(self._models.currentData(), AppLang.code),
-                    self._models.currentData(),
-                    widget.config
-                )
-
-
-class PredictorGroupBox(QGroupBox):
-    """
-    Конфигурация прогнозирующих моделей.
-    """
-    def __init__(
-            self,
-            predictors: Optional[dict[PredictorCode, Union[ForeBetConfig, AIAssistantConfig]]] = None,
-            *args,
-            **kwargs
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        self.setTitle(self.tr("Прогнозирующие модели"))
-
-        self._list_widget = QListWidget(self)
-        self._list_widget.setFixedHeight(120)
-        self._list_widget.itemDoubleClicked.connect(self._edit_item)
-
-        self._toolbar = QToolBar(orientation=Qt.Orientation.Vertical, iconSize=QSize(30, 30), parent=self)
-
-        self._add = QAction(
-            icon=QIcon(":/resources/icons/plus.png"),
-            text=self.tr("Добавить"),
-            parent=self
-        )
-        self._edit = QAction(
-            icon=QIcon(":/resources/icons/edit.png"),
-            text=self.tr("Редактировать"),
-            parent=self
-        )
-        self._del = QAction(
-            icon=QIcon(":/resources/icons/minus.png"),
-            text=self.tr("Удалить"),
-            parent=self
-        )
-
-        self._add.triggered.connect(self._add_item)
-        self._edit.triggered.connect(self._edit_item)
-        self._del.triggered.connect(self._del_item)
-
-        self._toolbar.addAction(self._add)
-        self._toolbar.addAction(self._edit)
-        self._toolbar.addAction(self._del)
-
-        layout = QHBoxLayout(self)
-        layout.addWidget(self._list_widget)
-        layout.addWidget(self._toolbar)
-
-        if predictors:
-            self._set_predictors(predictors)
-
-        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.customContextMenuRequested.connect(self.show_context_menu)
-
-    @property
-    def predictors(self) -> dict[PredictorCode, Union[ForeBetConfig, AIAssistantConfig]]:
-        predictors = {}
-        for row in range(self._list_widget.count()):
-            item = self._list_widget.item(row)
-            if isinstance(item, ConfigItem):
-                predictors[item.predictor_code] = item.config
-        return predictors
-
-    @property
-    def _codes(self) -> list[PredictorCode]:
-        codes = []
-        for row in range(self._list_widget.count()):
-            item = self._list_widget.item(row)
-            if isinstance(item, ConfigItem):
-                codes.append(item.predictor_code)
-        return codes
-
-    @Slot()
-    def show_context_menu(self, position: QPoint) -> None:
-        """
-        Показать контекстное меню.
-
-        :param position: Позиция.
-        """
-        context_menu = QMenu(self)
-        context_menu.addAction(self._add)
-
-        if self._list_widget.selectedItems():
-            context_menu.addSeparator()
-
-            context_menu.addActions(
-                [
-                    self._edit,
-                    self._del
-                ]
-            )
-
-        context_menu.exec(self.mapToGlobal(position))
-
-    @Slot()
-    def _add_item(self) -> None:
-        """
-        Добавить данные.
-        """
-        dialog = PredictorDialog(parent=self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            item = dialog.item
-
-            if item.predictor_code in self._codes:
-                reply = QMessageBox.question(
-                    self.parent(),
-                    self.tr("Добавление модели"),
-                    self.tr("Модель «{}» уже есть в списке, заменить на текущую?").format(
-                        get_predictor_name(item.predictor_code, AppLang.code),
-                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
-                        QMessageBox.StandardButton.Cancel
-                    )
-                )
-
-                if reply == QMessageBox.StandardButton.Yes:
-                    for row in range(self._list_widget.count()):
-                        list_item = self._list_widget.item(row)
-                        if isinstance(list_item, ConfigItem):
-                            if item.predictor_code == list_item.predictor_code:
-                                self._list_widget.takeItem(row)
-                                self._list_widget.addItem(item)
-
-    @Slot()
-    def _edit_item(self) -> None:
-        """
-        Редактировать данные.
-        """
-        item = self._list_widget.currentItem()
-        if item:
-            if isinstance(item, ConfigItem):
-                dialog = PredictorDialog(item.config, parent=self)
-                if dialog.exec() == QDialog.DialogCode.Accepted:
-                    edit_item = dialog.item
-                    item.setText(edit_item.text())
-                    item.predictor_code = edit_item.predictor_code
-                    item.config = edit_item.config
-
-    @Slot()
-    def _del_item(self) -> None:
-        """
-        Удалить данные.
-        """
-        item = self._list_widget.currentItem()
-        if item:
-            row = self._list_widget.row(item)
-            self._list_widget.takeItem(row)
-
-    def _set_predictors(self, predictors: dict[PredictorCode, Union[ForeBetConfig, AIAssistantConfig]]) -> None:
-        for predictor_code, config in predictors.items():
-            item = ConfigItem(
-                get_predictor_name(predictor_code, AppLang.code),
-                predictor_code,
-                config
-            )
-            self._list_widget.addItem(item)
-
-
 class DriverConfigDialog(QDialog):
     """
     Конфигурация драйвера.
@@ -785,16 +551,18 @@ class DriverConfigDialog(QDialog):
         self.setWindowTitle(self.tr("Настройка конфигурации"))
         self.setWindowIcon(QIcon(":/resources/icons/config.png"))
 
-        if config:
-            self._scraper_box = ScraperGroupBox(config.scraper_config, parent=self)
-            self._predictor_box = PredictorGroupBox(config.predictors, parent=self)
-        else:
-            self._scraper_box = ScraperGroupBox(parent=self)
-            self._predictor_box = PredictorGroupBox(parent=self)
+        self._scraper_box = ScraperGroupBox(config.scraper_config, parent=self)
+        self._assistant_box = AIConfigBox(config.assistant_config, parent=self)
+        self._fore_bet_box = ForeBetConfigBox(config.probability_config, parent=self)
 
         self._max_workers = QSpinBox(self, minimum=1, maximum=os.cpu_count())
 
         self._timeline_statistic = Switch(size=QSize(50, 25), checked=config.time_line_statistic, parent=self)
+        self._assistant = Switch(size=QSize(50, 25), checked=bool(config.assistant_config), parent=self)
+        self._probability = Switch(size=QSize(50, 25), checked=bool(config.probability_config), parent=self)
+
+        self._assistant.toggled.connect(self.change_assistant)
+        self._probability.toggled.connect(self.change_probability)
 
         self._timezone = QComboBox(self)
         for zone in sorted(zoneinfo.available_timezones()):
@@ -804,11 +572,20 @@ class DriverConfigDialog(QDialog):
         self._update_match = get_time_edit(self)
         self._update_teams = get_time_edit(self)
         self._update_matches = get_time_edit(self)
+        self._autosave = get_time_edit(self)
+
+        self._is_autosave = QCheckBox(self.tr("Таймер автосохранения:"))
+        self._is_autosave.checkStateChanged.connect(self._state_is_autosave)
 
         if config:
             if config.max_workers:
                 self._max_workers.setValue(config.max_workers)
+
+            if config.autosave_config:
+                self._is_autosave.setCheckState(Qt.CheckState.Checked)
+
             self._timezone.setCurrentText(config.timezone)
+
             self._misfire_time.setTime(
                 QTime(config.misfire_time.hours, config.misfire_time.minutes, config.misfire_time.seconds)
             )
@@ -821,6 +598,19 @@ class DriverConfigDialog(QDialog):
             self._update_matches.setTime(
                 QTime(config.update_matches.hours, config.update_matches.minutes, config.update_matches.seconds)
             )
+            self._autosave.setTime(
+                QTime(
+                    config.autosave_config.time.hours,
+                    config.autosave_config.time.minutes,
+                    config.autosave_config.time.seconds
+                )
+            )
+        else:
+            self._is_autosave.setCheckState(Qt.CheckState.Unchecked)
+
+        self._autosave.setEnabled(self._is_autosave.isChecked())
+        self._assistant_box.setEnabled(self._assistant.is_checked())
+        self._fore_bet_box.setEnabled(self._probability.is_checked())
 
         scheduler_box = QGroupBox(self, title=self.tr("Планировщик задач"))
         scheduler_layout = QFormLayout(scheduler_box)
@@ -830,10 +620,14 @@ class DriverConfigDialog(QDialog):
         scheduler_layout.addRow(self.tr("Таймер обновления матча:"), self._update_match)
         scheduler_layout.addRow(self.tr("Таймер обновления состава:"), self._update_teams)
         scheduler_layout.addRow(self.tr("Время загрузки матчей:"), self._update_matches)
+        scheduler_layout.addRow(self._is_autosave, self._autosave)
 
         driver_box = QGroupBox(self, title=self.tr("Драйвер"))
         driver_layout = QFormLayout(driver_box)
+        driver_layout.setSpacing(15)
         driver_layout.addRow(self.tr("Статистика по срезам:"), self._timeline_statistic)
+        driver_layout.addRow(self.tr("Ассистент:"), self._assistant)
+        driver_layout.addRow(self.tr("Импорт вероятностей:"), self._probability)
 
         apply_button = QPushButton(self.tr("Применить"))
         apply_button.clicked.connect(self.accept)
@@ -846,19 +640,20 @@ class DriverConfigDialog(QDialog):
         layout_button.addWidget(apply_button)
         layout_button.addWidget(cancel_button)
 
+        left_layout = QVBoxLayout()
+        left_layout.addWidget(driver_box)
+        left_layout.addWidget(self._fore_bet_box)
+
         top_layout = QHBoxLayout()
+        top_layout.addLayout(left_layout)
         top_layout.addWidget(self._scraper_box)
         top_layout.addWidget(scheduler_box)
-
-        bottom_layout = QHBoxLayout()
-        bottom_layout.addWidget(self._predictor_box)
-        bottom_layout.addWidget(driver_box)
 
         layout = QFormLayout(self)
         layout.setSizeConstraint(QFormLayout.SizeConstraint.SetFixedSize)
         layout.setSpacing(5)
         layout.addRow(top_layout)
-        layout.addRow(bottom_layout)
+        layout.addRow(self._assistant_box)
         layout.addRow(layout_button)
 
         # Создаем и устанавливаем фильтр
@@ -869,9 +664,33 @@ class DriverConfigDialog(QDialog):
 
     @property
     def config(self) -> DriverConfig:
+        if self._is_autosave.isChecked():
+            autosave_config = AutosaveConfig(
+                time=Time(
+                    hours=self._autosave.time().hour(),
+                    minutes=self._autosave.time().minute(),
+                    seconds=self._autosave.time().second()
+                ),
+                folder_path=AUTOSAVE_DIR
+            )
+        else:
+            autosave_config = None
+
+        if self._assistant.is_checked():
+            assistant_config = self._assistant_box.config
+        else:
+            assistant_config = None
+
+        if self._probability.is_checked():
+            probability_config = self._fore_bet_box.config
+        else:
+            probability_config = None
+
         return DriverConfig(
             scraper_config=self._scraper_box.config,
-            predictors=self._predictor_box.predictors,
+            assistant_config=assistant_config,
+            autosave_config=autosave_config,
+            probability_config=probability_config,
             time_line_statistic=self._timeline_statistic.is_checked(),
             max_workers=self._max_workers.value(),
             timezone=self._timezone.currentText(),
@@ -896,6 +715,21 @@ class DriverConfigDialog(QDialog):
                 seconds=self._update_matches.time().second()
             )
         )
+
+    @Slot()
+    def change_probability(self, flag: bool) -> None:
+        self._fore_bet_box.setEnabled(flag)
+
+    @Slot()
+    def change_assistant(self, flag: bool) -> None:
+        self._assistant_box.setEnabled(flag)
+
+    @Slot()
+    def _state_is_autosave(self, state: Qt.CheckState) -> None:
+        if state == Qt.CheckState.Checked:
+            self._autosave.setEnabled(True)
+        else:
+            self._autosave.setEnabled(False)
 
     def setup_wheel_filter(self, widget: QWidget) -> None:
         """
