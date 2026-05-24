@@ -19,7 +19,8 @@ from betsys import (
     Script,
     League,
     get_weekday_name,
-    get_country_name, ScriptDBModel
+    get_country_name,
+    ScriptDBModel
 )
 
 from src.utils.cache import DataCache

@@ -49,6 +49,7 @@ from src.utils.blocker import WheelBlocker
 from src.utils.button import create_icon_push_button
 from src.utils.lang import AppLang
 from src.utils.widget import get_time_edit
+from src.widgets.switch import Switch
 
 _logger = logging.getLogger(__name__)
 
@@ -793,6 +794,8 @@ class DriverConfigDialog(QDialog):
 
         self._max_workers = QSpinBox(self, minimum=1, maximum=os.cpu_count())
 
+        self._timeline_statistic = Switch(size=QSize(50, 25), checked=config.time_line_statistic, parent=self)
+
         self._timezone = QComboBox(self)
         for zone in sorted(zoneinfo.available_timezones()):
             self._timezone.addItem(zone)
@@ -828,6 +831,10 @@ class DriverConfigDialog(QDialog):
         scheduler_layout.addRow(self.tr("Таймер обновления состава:"), self._update_teams)
         scheduler_layout.addRow(self.tr("Время загрузки матчей:"), self._update_matches)
 
+        driver_box = QGroupBox(self, title=self.tr("Драйвер"))
+        driver_layout = QFormLayout(driver_box)
+        driver_layout.addRow(self.tr("Статистика по срезам:"), self._timeline_statistic)
+
         apply_button = QPushButton(self.tr("Применить"))
         apply_button.clicked.connect(self.accept)
 
@@ -839,12 +846,19 @@ class DriverConfigDialog(QDialog):
         layout_button.addWidget(apply_button)
         layout_button.addWidget(cancel_button)
 
+        top_layout = QHBoxLayout()
+        top_layout.addWidget(self._scraper_box)
+        top_layout.addWidget(scheduler_box)
+
+        bottom_layout = QHBoxLayout()
+        bottom_layout.addWidget(self._predictor_box)
+        bottom_layout.addWidget(driver_box)
+
         layout = QFormLayout(self)
         layout.setSizeConstraint(QFormLayout.SizeConstraint.SetFixedSize)
         layout.setSpacing(5)
-        layout.addRow(self._scraper_box)
-        layout.addRow(self._predictor_box)
-        layout.addRow(scheduler_box)
+        layout.addRow(top_layout)
+        layout.addRow(bottom_layout)
         layout.addRow(layout_button)
 
         # Создаем и устанавливаем фильтр
@@ -858,6 +872,7 @@ class DriverConfigDialog(QDialog):
         return DriverConfig(
             scraper_config=self._scraper_box.config,
             predictors=self._predictor_box.predictors,
+            time_line_statistic=self._timeline_statistic.is_checked(),
             max_workers=self._max_workers.value(),
             timezone=self._timezone.currentText(),
             misfire_time=Time(
