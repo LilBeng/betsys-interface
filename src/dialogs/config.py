@@ -21,7 +21,6 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QHeaderView,
-    QListWidgetItem,
     QDoubleSpinBox,
     QWidget,
     QToolBar,
@@ -283,23 +282,17 @@ class ScraperGroupBox(QGroupBox):
         self._toolbar.addAction(self._add)
         self._toolbar.addAction(self._del)
 
-        self._lang_box = QComboBox(self)
-        self._lang_box.addItem(get_lang_name(LangCode.RU), LangCode.RU)
-        self._lang_box.addItem(get_lang_name(LangCode.EN), LangCode.EN)
-
         self._project_id = QSpinBox(self, minimum=1)
         self._pages = QSpinBox(self, minimum=1)
         self._time_zone = QSpinBox(self, minimum=1, maximum=11)
 
         if config:
-            self._lang_box.setCurrentText(get_lang_name(config.lang_code))
             self._project_id.setValue(config.project_id)
             self._pages.setValue(config.pages)
             self._time_zone.setValue(config.time_zone)
             self._set_headers(config.headers)
 
         param_layout = QFormLayout()
-        param_layout.addRow(self.tr("Язык:"), self._lang_box)
         param_layout.addRow(self.tr("ID проекта:"), self._project_id)
         param_layout.addRow(self.tr("Страница:"), self._pages)
         param_layout.addRow(self.tr("Часовой пояс:"), self._time_zone)
@@ -345,7 +338,6 @@ class ScraperGroupBox(QGroupBox):
         return FlashScoreConfig(
             headers=self._headers,
             project_id=self._project_id.value(),
-            lang_code=self._lang_box.currentData(),
             pages=self._pages.value(),
             time_zone=self._time_zone.value()
         )
@@ -391,21 +383,6 @@ class ScraperGroupBox(QGroupBox):
             self._table.removeRow(current_row)
 
 
-class ConfigItem(QListWidgetItem):
-    """
-    Данные для списка.
-    """
-    def __init__(
-            self,
-            text: str,
-            predictor_code: PredictorCode,
-            config: Union[ForeBetConfig, AIAssistantConfig]
-    ) -> None:
-        super().__init__(text)
-        self.predictor_code = predictor_code
-        self.config = config
-
-
 class ForeBetConfigBox(QGroupBox):
     """
     Конфигурация ForeBet.
@@ -414,27 +391,19 @@ class ForeBetConfigBox(QGroupBox):
         super().__init__(*args, **kwargs)
         self.setTitle(get_predictor_name(PredictorCode.FORE_BET, AppLang.code))
 
-        self._lang_box = QComboBox(self)
-        self._lang_box.addItem(get_lang_name(LangCode.RU), LangCode.RU)
-        self._lang_box.addItem(get_lang_name(LangCode.EN), LangCode.EN)
-
         self._offset = get_time_edit(self)
 
         if config:
-            self._lang_box.setCurrentText(get_lang_name(config.lang_code))
             self._offset.setTime(
                 QTime(config.offset.hours, config.offset.minutes, config.offset.seconds)
             )
 
         layout = QFormLayout(self)
-        layout.setSpacing(25)
-        layout.addRow(self.tr("Язык:"), self._lang_box)
         layout.addRow(self.tr("Синхронизация времени:"), self._offset)
 
     @property
     def config(self) -> ForeBetConfig:
         return ForeBetConfig(
-            lang_code=self._lang_box.currentData(),
             offset=Time(
                 hours=self._offset.time().hour(),
                 minutes=self._offset.time().minute(),
@@ -481,10 +450,6 @@ class AIConfigBox(QGroupBox):
         api_layout.addRow(self.tr("Задержка:"), self._timeout)
         api_layout.addRow(self.tr("Количество повторов:"), self._max_retries)
 
-        self._lang_box = QComboBox(self)
-        self._lang_box.addItem(get_lang_name(LangCode.RU), LangCode.RU)
-        self._lang_box.addItem(get_lang_name(LangCode.EN), LangCode.EN)
-
         if config:
             self._model.setText(config.dialog_config.model)
             self._temperature.setValue(config.dialog_config.temperature)
@@ -492,7 +457,6 @@ class AIConfigBox(QGroupBox):
             self._base_url.setText(config.client_config.base_url)
             self._timeout.setValue(config.client_config.timeout)
             self._max_retries.setValue(config.client_config.max_retries)
-            self._lang_box.setCurrentText(get_lang_name(config.lang_code))
 
             if config.dialog_config.reasoning_effort_code is not None:
                 self._is_thinking.setCheckState(Qt.CheckState.Checked)
@@ -509,7 +473,6 @@ class AIConfigBox(QGroupBox):
         layout = QFormLayout(self)
         layout.addRow(dialog_box)
         layout.addRow(api_box)
-        layout.addRow(self.tr("Язык:"), self._lang_box)
 
     @property
     def config(self) -> AIAssistantConfig:
@@ -529,8 +492,7 @@ class AIConfigBox(QGroupBox):
                 base_url=self._base_url.text(),
                 timeout=self._timeout.value(),
                 max_retries=self._max_retries.value()
-            ),
-            lang_code=self._lang_box.currentData()
+            )
         )
 
     @Slot()
@@ -557,12 +519,18 @@ class DriverConfigDialog(QDialog):
 
         self._max_workers = QSpinBox(self, minimum=1, maximum=os.cpu_count())
 
+        self._lang_box = QComboBox(self)
+        for code in [LangCode.RU, LangCode.EN]:
+            self._lang_box.addItem(get_lang_name(code), code)
+
         self._timeline_statistic = Switch(size=QSize(50, 25), checked=config.time_line_statistic, parent=self)
         self._assistant = Switch(size=QSize(50, 25), checked=bool(config.assistant_config), parent=self)
         self._probability = Switch(size=QSize(50, 25), checked=bool(config.probability_config), parent=self)
+        self._autosave = Switch(size=QSize(50, 25), checked=bool(config.autosave_config), parent=self)
 
         self._assistant.toggled.connect(self.change_assistant)
         self._probability.toggled.connect(self.change_probability)
+        self._autosave.toggled.connect(self.change_autosave)
 
         self._timezone = QComboBox(self)
         for zone in sorted(zoneinfo.available_timezones()):
@@ -572,19 +540,34 @@ class DriverConfigDialog(QDialog):
         self._update_match = get_time_edit(self)
         self._update_teams = get_time_edit(self)
         self._update_matches = get_time_edit(self)
-        self._autosave = get_time_edit(self)
+        self._autosave_time = get_time_edit(self)
 
-        self._is_autosave = QCheckBox(self.tr("Таймер автосохранения:"))
-        self._is_autosave.checkStateChanged.connect(self._state_is_autosave)
+        self._path = QLineEdit()
+
+        self._add_folder = create_icon_push_button(
+            icon=QIcon(":/resources/icons/export.png"),
+            tooltip=self.tr("Выбрать папку"),
+            parent=self
+        )
+        self._add_folder.clicked.connect(self.open_folder_dialog)
 
         if config:
             if config.max_workers:
                 self._max_workers.setValue(config.max_workers)
 
             if config.autosave_config:
-                self._is_autosave.setCheckState(Qt.CheckState.Checked)
+                self._path.setText(config.autosave_config.folder_path)
+                
+                self._autosave_time.setTime(
+                    QTime(
+                        config.autosave_config.time.hours,
+                        config.autosave_config.time.minutes,
+                        config.autosave_config.time.seconds
+                    )
+                )
 
             self._timezone.setCurrentText(config.timezone)
+            self._lang_box.setCurrentText(get_lang_name(config.lang_code))
 
             self._misfire_time.setTime(
                 QTime(config.misfire_time.hours, config.misfire_time.minutes, config.misfire_time.seconds)
@@ -598,36 +581,35 @@ class DriverConfigDialog(QDialog):
             self._update_matches.setTime(
                 QTime(config.update_matches.hours, config.update_matches.minutes, config.update_matches.seconds)
             )
-            self._autosave.setTime(
-                QTime(
-                    config.autosave_config.time.hours,
-                    config.autosave_config.time.minutes,
-                    config.autosave_config.time.seconds
-                )
-            )
-        else:
-            self._is_autosave.setCheckState(Qt.CheckState.Unchecked)
 
-        self._autosave.setEnabled(self._is_autosave.isChecked())
-        self._assistant_box.setEnabled(self._assistant.is_checked())
-        self._fore_bet_box.setEnabled(self._probability.is_checked())
+        self.change_autosave(self._autosave.is_checked())
+        self.change_assistant(self._assistant.is_checked())
+        self.change_probability(self._probability.is_checked())
 
         scheduler_box = QGroupBox(self, title=self.tr("Планировщик задач"))
         scheduler_layout = QFormLayout(scheduler_box)
+        scheduler_layout.setSpacing(10)
         scheduler_layout.addRow(self.tr("Количество потоков:"), self._max_workers)
         scheduler_layout.addRow(self.tr("Часовой пояс:"), self._timezone)
         scheduler_layout.addRow(self.tr("Время задержки задачи:"), self._misfire_time)
         scheduler_layout.addRow(self.tr("Таймер обновления матча:"), self._update_match)
         scheduler_layout.addRow(self.tr("Таймер обновления состава:"), self._update_teams)
         scheduler_layout.addRow(self.tr("Время загрузки матчей:"), self._update_matches)
-        scheduler_layout.addRow(self._is_autosave, self._autosave)
+
+        folder_layout = QHBoxLayout()
+        folder_layout.addWidget(self._path)
+        folder_layout.addWidget(self._add_folder)
 
         driver_box = QGroupBox(self, title=self.tr("Драйвер"))
         driver_layout = QFormLayout(driver_box)
-        driver_layout.setSpacing(15)
+        driver_layout.setSpacing(5)
+        driver_layout.addRow(self.tr("Язык:"), self._lang_box)
         driver_layout.addRow(self.tr("Статистика по срезам:"), self._timeline_statistic)
         driver_layout.addRow(self.tr("Ассистент:"), self._assistant)
         driver_layout.addRow(self.tr("Импорт вероятностей:"), self._probability)
+        driver_layout.addRow(self.tr("Автосохранение:"), self._autosave)
+        driver_layout.addRow(self.tr("Таймер:"), self._autosave_time)
+        driver_layout.addRow(self.tr("Папка:"), folder_layout)
 
         apply_button = QPushButton(self.tr("Применить"))
         apply_button.clicked.connect(self.accept)
@@ -640,20 +622,23 @@ class DriverConfigDialog(QDialog):
         layout_button.addWidget(apply_button)
         layout_button.addWidget(cancel_button)
 
+        top_layout = QHBoxLayout()
+        top_layout.addWidget(driver_box)
+        top_layout.addWidget(scheduler_box)
+
         left_layout = QVBoxLayout()
-        left_layout.addWidget(driver_box)
+        left_layout.addWidget(self._scraper_box)
         left_layout.addWidget(self._fore_bet_box)
 
-        top_layout = QHBoxLayout()
-        top_layout.addLayout(left_layout)
-        top_layout.addWidget(self._scraper_box)
-        top_layout.addWidget(scheduler_box)
+        bottom_layout = QHBoxLayout()
+        bottom_layout.addLayout(left_layout)
+        bottom_layout.addWidget(self._assistant_box)
 
         layout = QFormLayout(self)
         layout.setSizeConstraint(QFormLayout.SizeConstraint.SetFixedSize)
         layout.setSpacing(5)
         layout.addRow(top_layout)
-        layout.addRow(self._assistant_box)
+        layout.addRow(bottom_layout)
         layout.addRow(layout_button)
 
         # Создаем и устанавливаем фильтр
@@ -664,12 +649,12 @@ class DriverConfigDialog(QDialog):
 
     @property
     def config(self) -> DriverConfig:
-        if self._is_autosave.isChecked():
+        if self._autosave.is_checked():
             autosave_config = AutosaveConfig(
                 time=Time(
-                    hours=self._autosave.time().hour(),
-                    minutes=self._autosave.time().minute(),
-                    seconds=self._autosave.time().second()
+                    hours=self._autosave_time.time().hour(),
+                    minutes=self._autosave_time.time().minute(),
+                    seconds=self._autosave_time.time().second()
                 ),
                 folder_path=AUTOSAVE_DIR
             )
@@ -691,6 +676,7 @@ class DriverConfigDialog(QDialog):
             assistant_config=assistant_config,
             autosave_config=autosave_config,
             probability_config=probability_config,
+            lang_code=self._lang_box.currentData(),
             time_line_statistic=self._timeline_statistic.is_checked(),
             max_workers=self._max_workers.value(),
             timezone=self._timezone.currentText(),
@@ -723,6 +709,24 @@ class DriverConfigDialog(QDialog):
     @Slot()
     def change_assistant(self, flag: bool) -> None:
         self._assistant_box.setEnabled(flag)
+
+    @Slot()
+    def change_autosave(self, flag: bool) -> None:
+        self._autosave_time.setEnabled(flag)
+        self._path.setEnabled(flag)
+        self._add_folder.setEnabled(flag)
+
+    @Slot()
+    def open_folder_dialog(self) -> None:
+        folder_path = QFileDialog.getExistingDirectory(
+            self,
+            self.tr("Выбор папки"),
+            QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation),
+            QFileDialog.Option.ShowDirsOnly
+        )
+
+        if folder_path:
+            self._path.setText(folder_path)
 
     @Slot()
     def _state_is_autosave(self, state: Qt.CheckState) -> None:
