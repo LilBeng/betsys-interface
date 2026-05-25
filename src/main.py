@@ -67,7 +67,8 @@ def load_style_sheet(filename: str) -> str:
 
 def run(only_database: bool = False):
     app = QApplication([])
-    app.setAttribute(Qt.ApplicationAttribute.AA_Use96Dpi, True)
+    app.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling, True)
+    app.setAttribute(Qt.ApplicationAttribute.AA_UseHighDpiPixmaps, True)
 
     font = QFont("Segoe UI", 12)
     app.setFont(font)

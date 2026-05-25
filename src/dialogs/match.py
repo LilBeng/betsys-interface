@@ -2,7 +2,7 @@ from typing import Optional, Callable
 
 from PySide6.QtCore import QThread, QSize
 from PySide6.QtGui import QIcon, QAction, Qt
-from PySide6.QtWidgets import QPlainTextEdit, QLabel, QWidget, QSizePolicy, QComboBox, QFormLayout
+from PySide6.QtWidgets import QPlainTextEdit, QLabel, QWidget, QSizePolicy, QComboBox, QFormLayout, QHBoxLayout
 from betsys import DBContext, MatchCode
 from qasync import asyncSlot
 
@@ -54,9 +54,14 @@ class MatchDetailsDAODialog(BaseDAODialog):
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.toolbar.addWidget(spacer)
 
-        self._total = QLabel(self)
+        self._in_memory = Switch(size=QSize(40, 20), checked=True, parent=self)
 
-        self.toolbar.addWidget(self._total)
+        self._memory_widget = QWidget()
+        memory_layout = QHBoxLayout(self._memory_widget)
+        memory_layout.addWidget(QLabel(self.tr("Хранить данные в памяти:")))
+        memory_layout.addWidget(self._in_memory)
+
+        self.toolbar.addWidget(self._memory_widget)
 
         self._forecast = Forecast(self)
         self._forecast.update_progress.connect(self._update_progress)
@@ -90,6 +95,7 @@ class MatchDetailsDAODialog(BaseDAODialog):
         self._scripts.setEnabled(False)
         self._weekdays_info.setEnabled(False)
         self._leagues_info.setEnabled(False)
+        self._memory_widget.setEnabled(False)
 
     def finished(self) -> None:
         super().finished()
@@ -97,6 +103,7 @@ class MatchDetailsDAODialog(BaseDAODialog):
         self._scripts.setEnabled(True)
         self._weekdays_info.setEnabled(True)
         self._leagues_info.setEnabled(True)
+        self._memory_widget.setEnabled(True)
 
     def _start_thread(self, callback: Optional[Callable], func: Callable, *args) -> None:
         if not self._worker.is_running:
@@ -131,37 +138,31 @@ class MatchDetailsDAODialog(BaseDAODialog):
         self._run_analyze.setEnabled(bool(scripts))
         self._scripts.setEnabled(bool(scripts))
 
-        if DataCache.matches:
-            self._total.setText(self.tr("Загружено матчей: {}").format(len(DataCache.matches)))
-        else:
-            self._total.setText(self.tr("Матчи не загружены"))
-
         self.finished()
 
         self.show_message(self.tr("Данные обновлены"))
 
     @asyncSlot()
     async def run(self, batch_size: int = 250) -> None:
-        self.started()
+        if self._scripts.currentData():
+            self.started()
 
-        if not DataCache.matches:
-            DataCache.matches = await self.get_matches(batch_size)
+            if not DataCache.matches:
+                DataCache.matches = await self.get_matches(batch_size)
 
-        if not DataCache.leagues:
-            DataCache.leagues = await self.get_leagues(batch_size)
+            if not DataCache.leagues:
+                DataCache.leagues = await self.get_leagues(batch_size)
 
-        if DataCache.matches:
-            self._total.setText(self.tr("Загружено матчей: {}").format(len(DataCache.matches)))
+            self._start_thread(
+                self._finished,
+                self._forecast.run,
+                self._scripts.currentData(),
+                self._weekdays_info.is_checked(),
+                self._leagues_info.is_checked(),
+                self._in_memory.is_checked()
+            )
         else:
-            self._total.setText(self.tr("Матчи не загружены"))
-
-        self._start_thread(
-            self._finished,
-            self._forecast.run,
-            self._scripts.currentData(),
-            self._weekdays_info.is_checked(),
-            self._leagues_info.is_checked()
-        )
+            self.show_message(self.tr("Сценарий не выбран"))
 
     def _finished(self) -> None:
         self.finished()

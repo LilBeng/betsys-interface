@@ -252,7 +252,7 @@ class ScraperGroupBox(QGroupBox):
         self.setTitle(self.tr("Доступ к Flashscore"))
 
         self._table = QTableWidget(0, 2)
-        self._table.setMaximumHeight(90)
+        self._table.setMaximumHeight(125)
         self._table.horizontalHeader().setStretchLastSection(True)
         self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)

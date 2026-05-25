@@ -1,5 +1,7 @@
+import multiprocessing
 import sys
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from statistics import mean
 from typing import Optional
@@ -20,11 +22,18 @@ from betsys import (
     League,
     get_weekday_name,
     get_country_name,
-    ScriptDBModel
+    ScriptDBModel, MatchDetailsDBModel
 )
 
 from src.utils.cache import DataCache
 from src.utils.lang import AppLang
+
+
+def _decompress_wrapper(obj):
+    try:
+        return MatchDetails.decompress(obj)
+    except Exception as e:
+        return None
 
 
 class Forecast(QObject):
@@ -34,6 +43,25 @@ class Forecast(QObject):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._cache = DataCache()
+
+    def _parallel_decompress(self, models: list[MatchDetailsDBModel]) -> list[MatchDetails]:
+        objects = [model.obj for model in models]
+        total = len(objects)
+        workers = max(1, multiprocessing.cpu_count() - 1)
+
+        self.update_progress.emit(0, total)
+
+        results = []
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            for index, result in enumerate(executor.map(MatchDetails.decompress, objects), 1):
+                if result:
+                    results.append(result)
+
+                # Обновляем прогресс каждые 10%
+                if index % max(1, total // 10) == 0 or index == total:
+                    self.update_progress.emit(index, total)
+
+        return results
 
     @staticmethod
     def forecast(match_details: MatchDetails, signal_property: SignalProperty) -> Optional[ForecastCode]:
@@ -283,7 +311,13 @@ class Forecast(QObject):
             else:
                 return signal_property.forecast(match_details.match)
 
-    def run(self, script_model: ScriptDBModel, weekdays_info: bool = True, leagues_info: bool = True) -> None:
+    def run(
+            self,
+            script_model: ScriptDBModel,
+            weekdays_info: bool = True,
+            leagues_info: bool = True,
+            in_memory: bool = True
+    ) -> None:
         self.send_message.emit(
             self.tr("\nНачало анализа: {}\n").format(datetime.today().strftime("%d.%m.%Y, %H:%M:%S"))
         )
@@ -301,15 +335,23 @@ class Forecast(QObject):
         weekdays_flags = []
         leagues_flags = []
 
+        if not in_memory:
+            self._cache.details.clear()
+
         leagues = self._cache.get_leagues(script.match_code, True)
-        models = self._cache.get_matches(script.match_code)
+        details = self._cache.get_details(script.match_code)
+
+        if not details:
+            models = self._cache.get_matches(script.match_code)
+            details = self._parallel_decompress(models)
+
+            if in_memory:
+                self._cache.details.extend(details)
 
         self.send_message.emit(self.tr("Количество лиг: {}").format(len(leagues)))
-        self.send_message.emit(self.tr("Количество матчей: {}").format(len(models)))
+        self.send_message.emit(self.tr("Количество матчей: {}").format(len(details)))
 
-        for index, model in enumerate(models, start=1):
-            match_details = MatchDetails.decompress(model.obj)
-
+        for index, match_details in enumerate(details, start=1):
             # Если указаны лиги
             if not script.validate_league(match_details):
                 del match_details
@@ -325,7 +367,7 @@ class Forecast(QObject):
             else:
                 del match_details
 
-            self.update_progress.emit(index, len(models))
+            self.update_progress.emit(index, len(details))
 
         if matches:
             self.send_message.emit(self.tr("\n>>> Общие данные\n"))
