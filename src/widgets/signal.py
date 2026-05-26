@@ -252,9 +252,7 @@ class SignalWidget(QFrame):
         if forecast_code == ForecastCode.UNDEFINED:
             self._score_label.setText(self.tr("Отмена сигнала"))
         else:
-            self._score_label.setText(
-                self.tr("Счет {}:{}").format(
-                    match_details.match.match_summary.home_team_score,
-                    match_details.match.match_summary.away_team_score
-                )
-            )
+            home_score = match_details.match.match_summary.home_team_score
+            away_score = match_details.match.match_summary.away_team_score
+            if home_score is not None and away_score:
+                self._score_label.setText(self.tr("Счет {}:{}").format(home_score, away_score))
