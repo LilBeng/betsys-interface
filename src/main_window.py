@@ -3,33 +3,34 @@ import logging
 from functools import partial
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QSettings, QByteArray, Slot, QPoint, QThread
-from PySide6.QtCore import Signal as pysideSignal
+from PySide6.QtCore import Qt, QSettings, QByteArray, Slot, QPoint, QThread, QSize
 from PySide6.QtGui import QIcon, QCloseEvent, QScreen
-from PySide6.QtWidgets import QMainWindow, QDockWidget, QScrollArea, QProgressBar, QMenu, QApplication, QMessageBox
+from PySide6.QtWidgets import (
+    QMainWindow,
+    QDockWidget,
+    QProgressBar,
+    QMenu,
+    QApplication,
+    QMessageBox,
+    QTabWidget
+)
 from betsys import (
     __version__,
     DBContext,
     MultiDriverConfig,
     DriverCode,
-    MatchDetails,
-    Signal,
-    SportEventDriver,
-    get_driver_name
+    SportEventDriver
 )
 
 from src import ERRORS, DISPLAY
-from src.layouts.flow import FlowLayout
 from src.utils.button import create_icon_push_button
 from src.utils.cache import DataCache
-from src.utils.lang import AppLang
 from src.utils.service import SportEventService
 from src.utils.worker import Worker
-from src.widgets.border import BorderWidget
 from src.widgets.console import ConsoleWidget
 from src.widgets.driver import DriverToolBar
 from src.widgets.logger import LogWidget
-from src.widgets.signal import SignalWidget
+from src.widgets.signal import SignalBorder
 
 _logger = logging.getLogger(__name__)
 
@@ -38,8 +39,6 @@ class MainWindow(QMainWindow):
     """
     Главное окно.
     """
-
-    update_progress_main_window = pysideSignal(int, int)
 
     def __init__(
             self,
@@ -83,20 +82,14 @@ class MainWindow(QMainWindow):
         self.driver_tool_bar = DriverToolBar(only_database, parent=self)
         self.addToolBar(self.driver_tool_bar)
 
-        self.container = BorderWidget(self)
-        if not only_database:
-            self.container.customContextMenuRequested.connect(self.show_context_menu)
-            self.container.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        # self.container = BorderWidget(self)
+        # if not only_database:
+        #     self.container.customContextMenuRequested.connect(self.show_context_menu)
+        #     self.container.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 
-        self._signal_layout = FlowLayout(self.container)
-        self._signal_layout.setContentsMargins(15, 15, 15, 15)
-        self._signal_layout.setSpacing(25)
-
-        self._scroll = QScrollArea()
-        self._scroll.setWidget(self.container)
-        self._scroll.setWidgetResizable(True)
-
-        self.setCentralWidget(self._scroll)
+        # self._scroll = QScrollArea()
+        # self._scroll.setWidget(self.container)
+        # self._scroll.setWidgetResizable(True)
 
         log_widget = LogWidget(500, ERRORS, parent=self)
         self.log_dock = QDockWidget(self.tr("Журнал"), self)
@@ -244,14 +237,9 @@ class MainWindow(QMainWindow):
             )
 
         self._service = SportEventService(db_context, multi_driver_config, parent=self)
+        self._service.status_message.connect(self.show_message)
 
         if not only_database:
-            self._service.status_message.connect(self.show_message)
-            self._service.signal_created.connect(self.add_signal)
-            self._service.signal_deleted.connect(self.delete_signal)
-            self._service.signal_restored.connect(self.add_signal)
-            self._service.signal_evaluated.connect(self.evaluated_signal)
-
             self.driver_tool_bar.football_run.triggered.connect(
                 partial(self._service.run, DriverCode.FOOTBALL, False)
             )
@@ -344,12 +332,32 @@ class MainWindow(QMainWindow):
         self.driver_tool_bar.ai_prompt_dao.triggered.connect(self._service.show_prompts_dialog)
 
         if not only_database:
-            self.driver_tool_bar.remove_finished_signals.triggered.connect(self.remove_non_active_signals)
-            self.driver_tool_bar.print_signals.triggered.connect(self.print_signals)
+            self._tab_bar = QTabWidget(self)
+            self._tab_bar.setDocumentMode(True)
+            self._tab_bar.tabBar().setIconSize(QSize(35, 35))
+            self._tab_bar.tabBar().setElideMode(Qt.TextElideMode.ElideRight)
+            self._tab_bar.tabBar().setFixedWidth(220)
+
+            self._signal_border = SignalBorder(self._service, self)
+            self._signal_border.update_progress.connect(self.sync_update_progress)
+            self._signal_border.show_message.connect(self.show_message)
+            self._signal_border.print_text.connect(self.print_text)
+            self._signal_border.customContextMenuRequested.connect(self.show_context_menu)
+            self._signal_border.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+
+            self._service.signal_created.connect(self._signal_border.add_signal)
+            self._service.signal_deleted.connect(self._signal_border.delete_signal)
+            self._service.signal_restored.connect(self._signal_border.add_signal)
+            self._service.signal_evaluated.connect(self._signal_border.evaluated_signal)
+
+            self.driver_tool_bar.remove_finished_signals.triggered.connect(self._signal_border.remove_finished_signals)
+            self.driver_tool_bar.print_signals.triggered.connect(self._signal_border.print_signals)
+
+            self._tab_bar.addTab(self._signal_border, QIcon(":/resources/icons/signal.png"), self.tr("Сигналы"))
+
+            self.setCentralWidget(self._tab_bar)
 
         SportEventDriver.update_progress.connect(self.async_update_progress)
-
-        self.update_progress_main_window.connect(self.sync_update_progress)
 
         self._load_config()
 
@@ -457,116 +465,7 @@ class MainWindow(QMainWindow):
         context_menu = QMenu(self)
         context_menu.addAction(self.driver_tool_bar.remove_finished_signals)
         context_menu.addAction(self.driver_tool_bar.print_signals)
-        context_menu.exec(self.container.mapToGlobal(position))
-
-    @Slot()
-    def add_signal(self, signal: Signal, match_details: MatchDetails,  driver_code: DriverCode) -> None:
-        """
-        Добавить сигнал.
-
-        :param signal: Сигнал.
-        :param match_details: Детали матча.
-        :param driver_code: Код драйвера.
-        """
-        widget = SignalWidget(signal, match_details, driver_code, self)
-        widget.delete_signal.connect(self._delete_signal)
-        widget.print_text.connect(self.print_text)
-        self._signal_layout.addWidget(widget)
-
-        if self._signal_layout.count():
-            self.container.hide_background()
-        else:
-            self.container.show_background()
-
-    @Slot()
-    def evaluated_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
-        """
-        Предсказать сигнал.
-
-        :param signal: Сигнал.
-        :param match_details: Детали матча.
-        :param driver_code: Код драйвера.
-        """
-        is_check = False
-        for index in range(self._signal_layout.count()):
-            item = self._signal_layout.itemAt(index)
-            widget = item.widget()
-            if isinstance(widget, SignalWidget):
-                if signal.signal_id == widget.signal_id:
-                    widget.forecast(signal, match_details)
-
-                    is_check = True
-                    break
-
-        if not is_check:
-            self.add_signal(signal, match_details, driver_code)
-            self.evaluated_signal(signal, match_details, driver_code)
-
-    @Slot()
-    def _delete_signal(self, signal_id: str, driver_code: DriverCode) -> None:
-        self._service.remove_signal(signal_id, driver_code)
-
-        self._signal_layout.invalidate()
-        self._signal_layout.update()
-        self._signal_layout.activate()
-
-        if self._signal_layout.count():
-            self.container.hide_background()
-        else:
-            self.container.show_background()
-
-        self.show_message(
-            self.tr("Сигнал драйвера «{}» удален").format(get_driver_name(driver_code, AppLang.code))
-        )
-
-    @Slot()
-    def delete_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
-        """
-        Удалить сигнал.
-
-        :param signal: Сигнал.
-        :param match_details: Детали матча.
-        :param driver_code: Код драйвера.
-        """
-        for index in range(self._signal_layout.count()):
-            item = self._signal_layout.itemAt(index)
-            widget = item.widget()
-            if isinstance(widget, SignalWidget):
-                if signal.signal_id == widget.signal_id:
-                    self._service.remove_signal(widget.signal_id, widget.driver_code)
-                    self._signal_layout.takeAt(index)
-                    widget.deleteLater()
-
-                    self._signal_layout.invalidate()
-                    self._signal_layout.update()
-                    self._signal_layout.activate()
-
-                    self.show_message(
-                        self.tr("Сигнал драйвера «{}» удален").format(get_driver_name(driver_code, AppLang.code))
-                    )
-
-                    break
-
-        if self._signal_layout.count():
-            self.container.hide_background()
-        else:
-            self.container.show_background()
-
-    @Slot()
-    def remove_non_active_signals(self) -> None:
-        self._service.fing_signal_ids(self._remove_non_active_signals)
-
-    @Slot()
-    def print_signals(self) -> None:
-        if self._signal_layout.items:
-            for item in self._signal_layout.items[:]:
-                widget = item.widget()
-                if isinstance(widget, SignalWidget):
-                    self.print_text(f"{widget.text}\n")
-
-            self.show_message(self.tr(f"Информация выведена в консоль"))
-        else:
-            self.show_message(self.tr(f"Сигналы не найдены"))
+        context_menu.exec(self._signal_border.mapToGlobal(position))
 
     @Slot()
     def show_cache_dialog(self) -> None:
@@ -592,35 +491,3 @@ class MainWindow(QMainWindow):
 
         cache = DataCache()
         self._worker.start(finished, cache.clear)
-
-    def _remove_non_active_signals(self, signal_ids: list[str]) -> None:
-        """
-        Удалить завершенные сигналы.
-        """
-        if signal_ids:
-            items = self._signal_layout.items[:]
-            for index, item in enumerate(items, start=1):
-                widget = item.widget()
-                if isinstance(widget, SignalWidget):
-                    if widget.signal_id not in signal_ids:
-                        self._signal_layout.items.remove(item)
-                        widget.setVisible(False)
-                        widget.deleteLater()
-
-                        self._signal_layout.invalidate()
-                        self._signal_layout.update()
-                        self._signal_layout.activate()
-
-                self.update_progress_main_window.emit(index, len(items))
-
-            if self._signal_layout.count():
-                self.container.hide_background()
-            else:
-                self.container.show_background()
-
-            self.show_message(self.tr(f"Сигналы завершенных матчей удалены"))
-        else:
-            if self._signal_layout.items:
-                self._signal_layout.clear()
-
-            self.show_message(self.tr(f"Сигналы не найдены"))

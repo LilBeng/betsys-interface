@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QFileDialog,
     QFrame,
-    QDialog
+    QDialog, QScrollArea
 )
 from betsys import (
     Signal,
@@ -23,16 +23,167 @@ from betsys import (
     MatchStatusCode,
     format_signal,
     get_risk_name,
-    get_signal_type_name
+    get_signal_type_name,
+    get_driver_name
 )
 
 from src.dialogs.chat import ChatDialog
+from src.layouts.flow import FlowLayout
 from src.utils.blocker import WheelBlocker
 from src.utils.button import create_icon_push_button
 from src.utils.lang import AppLang
+from src.utils.service import SportEventService
 from src.widgets.color import ColorWidget
 
 _logger = logging.getLogger(__name__)
+
+
+class SignalBorder(QFrame):
+    update_progress = pysideSignal(int, int)
+    show_message = pysideSignal(str)
+    print_text = pysideSignal(str)
+
+    def __init__(self, service: SportEventService, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._service = service
+
+        self.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Raised)
+
+        main_layout = QVBoxLayout(self)
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
+
+        container = QWidget()
+
+        self._signal_layout = FlowLayout(container)
+        self._signal_layout.setContentsMargins(10, 10, 10, 10)
+        self._signal_layout.setSpacing(25)
+
+        scroll_area.setWidget(container)
+        main_layout.addWidget(scroll_area)
+
+    @Slot()
+    def add_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
+        """
+        Добавить сигнал.
+
+        :param signal: Сигнал.
+        :param match_details: Детали матча.
+        :param driver_code: Код драйвера.
+        """
+        widget = SignalWidget(signal, match_details, driver_code, self)
+        widget.delete_signal.connect(self._delete_signal)
+        widget.print_text.connect(self.print_text.emit)
+        self._signal_layout.addWidget(widget)
+
+    @Slot()
+    def evaluated_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
+        """
+        Предсказать сигнал.
+
+        :param signal: Сигнал.
+        :param match_details: Детали матча.
+        :param driver_code: Код драйвера.
+        """
+        is_check = False
+        for index in range(self._signal_layout.count()):
+            item = self._signal_layout.itemAt(index)
+            widget = item.widget()
+            if isinstance(widget, SignalWidget):
+                if signal.signal_id == widget.signal_id:
+                    widget.forecast(signal, match_details)
+
+                    is_check = True
+                    break
+
+        if not is_check:
+            self.add_signal(signal, match_details, driver_code)
+            self.evaluated_signal(signal, match_details, driver_code)
+
+    @Slot()
+    def _delete_signal(self, signal_id: str, driver_code: DriverCode) -> None:
+        self._service.remove_signal(signal_id, driver_code)
+
+        self._signal_layout.invalidate()
+        self._signal_layout.update()
+        self._signal_layout.activate()
+
+        self.show_message.emit(
+            self.tr("Сигнал драйвера «{}» удален").format(get_driver_name(driver_code, AppLang.code))
+        )
+
+    @Slot()
+    def delete_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
+        """
+        Удалить сигнал.
+
+        :param signal: Сигнал.
+        :param match_details: Детали матча.
+        :param driver_code: Код драйвера.
+        """
+        for index in range(self._signal_layout.count()):
+            item = self._signal_layout.itemAt(index)
+            widget = item.widget()
+            if isinstance(widget, SignalWidget):
+                if signal.signal_id == widget.signal_id:
+                    self._service.remove_signal(widget.signal_id, widget.driver_code)
+                    self._signal_layout.takeAt(index)
+                    widget.deleteLater()
+
+                    self._signal_layout.invalidate()
+                    self._signal_layout.update()
+                    self._signal_layout.activate()
+
+                    self.show_message.emit(
+                        self.tr("Сигнал драйвера «{}» удален").format(get_driver_name(driver_code, AppLang.code))
+                    )
+
+                    break
+
+    @Slot()
+    def remove_finished_signals(self) -> None:
+        self._service.fing_signal_ids(self._remove_non_active_signals)
+
+    @Slot()
+    def print_signals(self) -> None:
+        if self._signal_layout.items:
+            for item in self._signal_layout.items[:]:
+                widget = item.widget()
+                if isinstance(widget, SignalWidget):
+                    self.print_text.emit(f"{widget.text}\n")
+
+            self.show_message.emit(self.tr(f"Информация выведена в консоль"))
+        else:
+            self.show_message.emit(self.tr(f"Сигналы не найдены"))
+
+    def _remove_non_active_signals(self, signal_ids: list[str]) -> None:
+        """
+        Удалить завершенные сигналы.
+        """
+        if signal_ids:
+            items = self._signal_layout.items[:]
+            for index, item in enumerate(items, start=1):
+                widget = item.widget()
+                if isinstance(widget, SignalWidget):
+                    if widget.signal_id not in signal_ids:
+                        self._signal_layout.items.remove(item)
+                        widget.setVisible(False)
+                        widget.deleteLater()
+
+                        self._signal_layout.invalidate()
+                        self._signal_layout.update()
+                        self._signal_layout.activate()
+
+                self.update_progress.emit(index, len(items))
+
+            self.show_message.emit(self.tr(f"Сигналы завершенных матчей удалены"))
+        else:
+            if self._signal_layout.items:
+                self._signal_layout.clear()
+
+            self.show_message.emit(self.tr(f"Сигналы не найдены"))
 
 
 class SignalWidget(QFrame):
