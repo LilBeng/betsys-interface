@@ -32,6 +32,7 @@ from betsys import (
 )
 
 from src.dialogs.property import PromptDialog
+from src.utils.blocker import WheelBlocker
 from src.utils.button import create_icon_push_button
 from src.utils.lang import AppLang
 from src.widgets.box import DataGroupBox, PropertyGroupBox, FilterGroupBox, DescriptionGroupBox
@@ -199,6 +200,19 @@ class PromptEditorWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(self._toolbar, alignment=Qt.AlignmentFlag.AlignTop)
         layout.addLayout(central_layout)
+
+        self.wheel_blocker = WheelBlocker()
+        self.installEventFilter(self.wheel_blocker)
+
+        self.setup_wheel_filter(self)
+
+    def setup_wheel_filter(self, widget: QWidget) -> None:
+        """
+        Рекурсивно устанавливаем фильтр на все дочерние виджеты
+        """
+        widget.installEventFilter(self.wheel_blocker)
+        for child in widget.findChildren(QWidget):
+            child.installEventFilter(self.wheel_blocker)
 
     @Slot()
     def save_model(self) -> None:

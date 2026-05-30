@@ -35,11 +35,11 @@ class BaseButtonDialog(BaseDialog):
         self._buttons.accepted.connect(self.accept)
         self._buttons.rejected.connect(self.reject)
 
-        layout = QFormLayout(self)
-        layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
-        layout.setSpacing(10)
-        layout.addRow(self.central_layout)
-        layout.addRow(self._buttons)
+        self.main_layout = QFormLayout(self)
+        self.main_layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
+        self.main_layout.setSpacing(10)
+        self.main_layout.addRow(self.central_layout)
+        self.main_layout.addRow(self._buttons)
 
 
 class BaseScriptDialog(BaseButtonDialog):

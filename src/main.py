@@ -85,6 +85,21 @@ def run(only_database: bool = False):
     while not is_load:
         if db_config := load_db():
             try:
+                if not is_load:
+                    if isinstance(db_config, LiteDBConfig):
+                        if not os.path.isfile(db_config.path):
+                            QMessageBox.critical(
+                                app.activeModalWidget(),
+                                app.tr("Подключение"),
+                                app.tr("Не удалось найти файл базы данных")
+                            )
+
+                            dialog = DAOConfigDialog(db_config)
+                            if dialog.exec() == QDialog.DialogCode.Rejected:
+                                break
+                            else:
+                                continue
+
                 db_context = DBContext(db_config)
 
                 flag = check_dao(db_context)
@@ -128,4 +143,4 @@ def run(only_database: bool = False):
         else:
             dialog = DAOConfigDialog()
             if dialog.exec() == QDialog.DialogCode.Rejected:
-                is_load = True
+                break

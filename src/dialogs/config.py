@@ -86,10 +86,9 @@ class LiteDBConfigBox(QGroupBox):
 
     @property
     def config(self) -> LiteDBConfig:
-        if self._path.text():
-            return LiteDBConfig(
-                path=self._path.text()
-            )
+        return LiteDBConfig(
+            path=self._path.text()
+        )
 
     def open_file_dialog(self) -> None:
         file_name, _ = QFileDialog.getOpenFileName(
@@ -220,15 +219,6 @@ class DAOConfigDialog(QDialog):
             return widget.config
 
     def accept(self) -> None:
-        widget = self._stacked_layout.currentWidget()
-        if isinstance(widget, LiteDBConfigBox):
-            if not widget.config.path:
-                QMessageBox.critical(
-                    self,
-                    self.windowTitle(),
-                    f"Не указан путь к локальной БД"
-                )
-
         try:
             self.config.save(CONFIG)
         except Exception as exception:
@@ -602,7 +592,7 @@ class DriverConfigDialog(QDialog):
 
         driver_box = QGroupBox(self, title=self.tr("Драйвер"))
         driver_layout = QFormLayout(driver_box)
-        driver_layout.setSpacing(5)
+        driver_layout.setSpacing(7)
         driver_layout.addRow(self.tr("Язык:"), self._lang_box)
         driver_layout.addRow(self.tr("Статистика по срезам:"), self._timeline_statistic)
         driver_layout.addRow(self.tr("Ассистент:"), self._assistant)
@@ -656,7 +646,7 @@ class DriverConfigDialog(QDialog):
                     minutes=self._autosave_time.time().minute(),
                     seconds=self._autosave_time.time().second()
                 ),
-                folder_path=AUTOSAVE_DIR
+                folder_path=self._path.text() if self._path.text() else AUTOSAVE_DIR
             )
         else:
             autosave_config = None

@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt, QSize, Slot
 from PySide6.QtWidgets import QComboBox, QSpinBox, QListWidget, QListWidgetItem, QCheckBox, QLabel, QFormLayout, \
-    QHBoxLayout, QGroupBox
+    QHBoxLayout, QGroupBox, QLayout
 from betsys import (
     Script,
     MatchCategoryCode,
@@ -112,6 +112,8 @@ class LeaguePropertyDialog(BaseScriptDialog):
         self.central_layout.addRow(self._tree)
 
         self.toggled_switch(self._switch.is_checked())
+
+        self.main_layout.setSizeConstraint(QLayout.SizeConstraint.SetDefaultConstraint)
 
         self.update_tree()
 
