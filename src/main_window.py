@@ -2,8 +2,9 @@ import ctypes
 import logging
 from functools import partial
 from pathlib import Path
+from typing import Optional
 
-from PySide6.QtCore import Qt, QSettings, QByteArray, Slot, QPoint, QThread, QSize
+from PySide6.QtCore import Qt, QSettings, QByteArray, Slot, QPoint, QThread, QSize, Signal as pysideSignal
 from PySide6.QtGui import QIcon, QCloseEvent, QScreen
 from PySide6.QtWidgets import (
     QMainWindow,
@@ -12,23 +13,29 @@ from PySide6.QtWidgets import (
     QMenu,
     QApplication,
     QMessageBox,
-    QTabWidget
+    QTabWidget,
+    QTabBar
 )
 from betsys import (
     __version__,
     DBContext,
     MultiDriverConfig,
     DriverCode,
-    SportEventDriver
+    SportEventDriver,
+    get_driver_name
 )
+from betsys.driver.base import Information
+
 
 from src import ERRORS, DISPLAY
 from src.utils.button import create_icon_push_button
 from src.utils.cache import DataCache
+from src.utils.lang import AppLang
 from src.utils.service import SportEventService
 from src.utils.worker import Worker
 from src.widgets.console import ConsoleWidget
 from src.widgets.driver import DriverToolBar
+from src.widgets.information import InformationWidget
 from src.widgets.logger import LogWidget
 from src.widgets.signal import SignalBorder
 
@@ -39,6 +46,7 @@ class MainWindow(QMainWindow):
     """
     Главное окно.
     """
+    add_tab_signal = pysideSignal(Information, DriverCode)
 
     def __init__(
             self,
@@ -81,15 +89,6 @@ class MainWindow(QMainWindow):
 
         self.driver_tool_bar = DriverToolBar(only_database, parent=self)
         self.addToolBar(self.driver_tool_bar)
-
-        # self.container = BorderWidget(self)
-        # if not only_database:
-        #     self.container.customContextMenuRequested.connect(self.show_context_menu)
-        #     self.container.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-
-        # self._scroll = QScrollArea()
-        # self._scroll.setWidget(self.container)
-        # self._scroll.setWidgetResizable(True)
 
         log_widget = LogWidget(500, ERRORS, parent=self)
         self.log_dock = QDockWidget(self.tr("Журнал"), self)
@@ -238,6 +237,9 @@ class MainWindow(QMainWindow):
 
         self._service = SportEventService(db_context, multi_driver_config, parent=self)
         self._service.status_message.connect(self.show_message)
+        self._service.update_progress.connect(self.sync_update_progress)
+
+        SportEventDriver.update_progress.connect(self.async_update_progress)
 
         if not only_database:
             self.driver_tool_bar.football_run.triggered.connect(
@@ -277,13 +279,13 @@ class MainWindow(QMainWindow):
                 partial(self._service.stop, DriverCode.VOLLEYBALL, True)
             )
             self.driver_tool_bar.football_info.triggered.connect(
-                partial(self._service.show_info, DriverCode.FOOTBALL)
+                partial(self.show_information, DriverCode.FOOTBALL)
             )
             self.driver_tool_bar.hockey_info.triggered.connect(
-                partial(self._service.show_info, DriverCode.HOCKEY)
+                partial(self.show_information, DriverCode.HOCKEY)
             )
             self.driver_tool_bar.volleyball_info.triggered.connect(
-                partial(self._service.show_info, DriverCode.VOLLEYBALL)
+                partial(self.show_information, DriverCode.VOLLEYBALL)
             )
             self.driver_tool_bar.football_update_scripts.triggered.connect(
                 partial(self._service.update_data, DriverCode.FOOTBALL, True)
@@ -332,11 +334,14 @@ class MainWindow(QMainWindow):
         self.driver_tool_bar.ai_prompt_dao.triggered.connect(self._service.show_prompts_dialog)
 
         if not only_database:
-            self._tab_bar = QTabWidget(self)
-            self._tab_bar.setDocumentMode(True)
-            self._tab_bar.tabBar().setIconSize(QSize(35, 35))
-            self._tab_bar.tabBar().setElideMode(Qt.TextElideMode.ElideRight)
-            self._tab_bar.tabBar().setFixedWidth(220)
+            self._tab_widget = QTabWidget(self)
+            self._tab_widget.setTabsClosable(True)
+            self._tab_widget.setDocumentMode(True)
+
+            self._tab_widget.tabBar().setIconSize(QSize(35, 35))
+            self._tab_widget.tabBar().setElideMode(Qt.TextElideMode.ElideRight)
+
+            self._tab_widget.tabCloseRequested.connect(self.close_tab)
 
             self._signal_border = SignalBorder(self._service, self)
             self._signal_border.update_progress.connect(self.sync_update_progress)
@@ -353,11 +358,12 @@ class MainWindow(QMainWindow):
             self.driver_tool_bar.remove_finished_signals.triggered.connect(self._signal_border.remove_finished_signals)
             self.driver_tool_bar.print_signals.triggered.connect(self._signal_border.print_signals)
 
-            self._tab_bar.addTab(self._signal_border, QIcon(":/resources/icons/signal.png"), self.tr("Сигналы"))
+            self._tab_widget.addTab(self._signal_border, QIcon(":/resources/icons/signal.png"), self.tr("Сигналы"))
+            self._tab_widget.tabBar().tabButton(0, QTabBar.ButtonPosition.RightSide).setVisible(False)
 
-            self.setCentralWidget(self._tab_bar)
+            self.setCentralWidget(self._tab_widget)
 
-        SportEventDriver.update_progress.connect(self.async_update_progress)
+        self.add_tab_signal.connect(self.add_tab)
 
         self._load_config()
 
@@ -437,11 +443,17 @@ class MainWindow(QMainWindow):
         else:
             event.ignore()
 
-    async def async_update_progress(self, sender: str, value: int, max_value: int) -> None:
-        self.sync_update_progress(value, max_value)
+    async def async_update_progress(
+            self,
+            sender: str,
+            value: int,
+            max_value: int,
+            driver_code: Optional[DriverCode]
+    ) -> None:
+        self.sync_update_progress(value, max_value, driver_code)
 
     @Slot()
-    def sync_update_progress(self, value: int, max_value: int) -> None:
+    def sync_update_progress(self, value: int, max_value: int, driver_code: Optional[DriverCode] = None) -> None:
         if value != max_value:
             self.menu_bar.setEnabled(False)
             self.driver_tool_bar.setEnabled(False)
@@ -484,6 +496,45 @@ class MainWindow(QMainWindow):
 
         global_pos = self._show_dialog.mapToGlobal(QPoint(0, -cache_menu.sizeHint().height()))
         cache_menu.popup(global_pos)
+
+    @Slot()
+    def show_information(self, driver_code: DriverCode) -> None:
+        def _add_widget(information: Information) -> None:
+            if information:
+                for index in range(self._tab_widget.count()):
+                    widget = self._tab_widget.widget(index)
+                    if isinstance(widget, InformationWidget):
+                        if widget.driver_code == driver_code:
+                            self.show_message(self.tr("Вкладка с информацией уже открыта"))
+                            return None
+
+                self.add_tab_signal.emit(information, driver_code)
+
+        self._service.get_object(
+            driver_code,
+            SportEventDriver.__name__,
+            SportEventService.get_name(SportEventDriver, SportEventDriver.information),
+            _add_widget
+        )
+
+    @Slot()
+    def add_tab(self, information: Information, driver_code: DriverCode) -> None:
+        icons = {
+            DriverCode.FOOTBALL: QIcon(":/resources/icons/football.png"),
+            DriverCode.HOCKEY: QIcon(":/resources/icons/hockey.png"),
+            DriverCode.VOLLEYBALL: QIcon(":/resources/icons/volleyball.png")
+        }
+        widget = InformationWidget(self._service, driver_code, information)
+        widget.print_text.connect(self.print_text)
+        widget.show_message.connect(self.show_message)
+        index = self._tab_widget.addTab(widget, icons.get(driver_code), get_driver_name(driver_code, AppLang.code))
+        self._tab_widget.setCurrentIndex(index)
+
+    @Slot()
+    def close_tab(self, index: int) -> None:
+        widget = self._tab_widget.widget(index)
+        self._tab_widget.removeTab(index)
+        widget.deleteLater()
 
     def _clear_cache(self) -> None:
         def finished():

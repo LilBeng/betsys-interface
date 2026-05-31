@@ -48,6 +48,8 @@ class SportEventService(QObject):
     signal_deleted = pysideSignal(Signal, MatchDetails, DriverCode)
     signal_restored = pysideSignal(Signal, MatchDetails, DriverCode)
 
+    update_progress = pysideSignal(int, int, DriverCode)
+
     def __init__(
             self,
             db_context: DBContext,
@@ -111,8 +113,8 @@ class SportEventService(QObject):
                             exc_info=None
                         ))
 
-            responses = worker.get_signals()
-            for response in responses:
+            signal_responses = worker.get_signals()
+            for response in signal_responses:
                 _logger.info(
                     f"Sender {response.sender} - get signal "
                     f"(signal_id={response.signal.signal_id}, driver_code={response.driver_code})"
@@ -127,8 +129,13 @@ class SportEventService(QObject):
                 elif response.signal_method_code == SignalMethodCode.EVALUATED:
                     self.signal_evaluated.emit(response.signal, response.match_details, response.driver_code)
 
+            progress_responses = worker.get_progress()
+            for response in progress_responses:
+                self.update_progress.emit(response.value, response.max_value, response.driver_code)
+
             del entry_logs
-            del responses
+            del signal_responses
+            del progress_responses
 
     def _check_driver(self, driver_code: DriverCode, is_running: bool = True) -> bool:
         worker = self.workers.get(driver_code)
@@ -383,16 +390,18 @@ class SportEventService(QObject):
             )
 
     @Slot()
-    def show_info(self, driver_code: DriverCode) -> None:
+    def get_object(
+            self,
+            driver_code: DriverCode,
+            target_name: str,
+            method_name: str,
+            callback: Optional[callable] = None
+    ) -> None:
         def check() -> Optional[Information]:
             if self._check_driver(driver_code, False):
                 worker = self.workers.get(driver_code)
                 if worker:
-                    response = self._get_response(
-                        worker,
-                        SportEventDriver.__name__,
-                        self.get_name(SportEventDriver, SportEventDriver.information)
-                    )
+                    response = self._get_response(worker, target_name, method_name)
                     if response and response.status == StatusCode.SUCCESS:
                         return response.result
                     else:
@@ -404,35 +413,7 @@ class SportEventService(QObject):
 
             return None
 
-        self._start_thread(self._show_info, check)
-
-    @Slot()
-    def _show_info(self, information: Information) -> None:
-        """
-        Показать информацию о драйвере.
-        """
-        if information:
-            QMessageBox.information(
-                self.parent(),
-                self.tr("Информация"),
-                self.tr(
-                    "Дата запуска: {}\n"
-                    "Дата текущего обновления: {}\n\n"
-                    "Количество матчей: {}\n"
-                    "Количество активных сценариев: {}\n"
-                    "Количество активных сигналов: {}\n\n"
-                    "Запланировано задач: {}\n"
-                    "Запуск следующей: {}"
-                ).format(
-                    information.run_datetime.strftime("%d.%m.%Y %H:%M"),
-                    information.update_date,
-                    information.matches_count,
-                    information.scripts_count,
-                    information.signals_count,
-                    information.jobs_count,
-                    information.next_run_job_datetime.strftime("%H:%M:%S")
-                )
-            )
+        self._start_thread(callback, check)
 
     @Slot()
     def update_data(self, driver_code: DriverCode, is_script: bool) -> None:
@@ -512,7 +493,12 @@ class SportEventService(QObject):
             config = self.multi_driver_config.config.get(driver_code)
             if config:
                 try:
-                    flag = await SportEventDriver.download_leagues(self.db_context, match_code, config.scraper_config)
+                    flag = await SportEventDriver.download_leagues(
+                        self.db_context,
+                        match_code,
+                        config.scraper_config,
+                        config.lang_code
+                    )
                     if flag:
                         DataCache.leagues.clear()
                         self.status_message.emit(self.tr("Лиги загружены"))

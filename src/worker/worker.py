@@ -22,7 +22,7 @@ from betsys import (
 
 from src.worker.code import StatusCode, SignalMethodCode
 from src.worker.handler import QueueHandler
-from src.worker.tuple import WorkerResponse, SignalResponse, LogEntry
+from src.worker.tuple import WorkerResponse, SignalResponse, LogEntry, ProgressResponse
 
 _logger = logging.getLogger(__name__)
 
@@ -47,10 +47,17 @@ class WorkerDriverProcess(object):
         self.resources_queue = Queue(maxsize=maxsize)
         self.logging_queue = Queue(maxsize=maxsize)
         self.signals_queue = Queue(maxsize=maxsize)
+        self.progress_queue = Queue(maxsize=maxsize)
 
         self._process = Process(
             target=self._run,
-            args=(self.commands_queue, self.resources_queue, self.logging_queue, self.signals_queue)
+            args=(
+                self.commands_queue,
+                self.resources_queue,
+                self.logging_queue,
+                self.signals_queue,
+                self.progress_queue
+            )
         )
 
         self._driver: Optional[SportEventDriver] = None
@@ -63,7 +70,14 @@ class WorkerDriverProcess(object):
     def driver_code(self) -> DriverCode:
         return self._driver_code
 
-    def _run(self, commands_queue: Queue, resources_queue: Queue, logging_queue: Queue, signal_queue: Queue) -> None:
+    def _run(
+            self,
+            commands_queue: Queue,
+            resources_queue: Queue,
+            logging_queue: Queue,
+            signal_queue: Queue,
+            progress_queue: Queue
+    ) -> None:
         """Точка входа для процесса"""
         try:
             handler = QueueHandler(logging_queue)
@@ -91,6 +105,7 @@ class WorkerDriverProcess(object):
             self._driver.signal_evaluated.connect(
                 partial(self._connected_signal, signal_queue, SignalMethodCode.EVALUATED),
                 weak=False)
+            self._driver.update_progress.connect(partial(self._connected_progress, progress_queue), weak=False)
 
             loop.create_task(self._command_listener(commands_queue, resources_queue))
 
@@ -114,6 +129,23 @@ class WorkerDriverProcess(object):
                 signal_method_code=signal_method_code,
                 signal=signal,
                 match_details=match_details,
+                driver_code=driver_code
+            )
+        )
+
+    @staticmethod
+    async def _connected_progress(
+            progress_queue: Queue,
+            sender: str,
+            value: int,
+            max_value: int,
+            driver_code: DriverCode
+    ) -> None:
+        progress_queue.put(
+            ProgressResponse(
+                sender=sender,
+                value=value,
+                max_value=max_value,
                 driver_code=driver_code
             )
         )
@@ -203,13 +235,13 @@ class WorkerDriverProcess(object):
         return logs
 
     def get_signals(self) -> list[SignalResponse]:
-        logs = []
+        signals = []
         try:
             while True:
-                logs.append(self.signals_queue.get_nowait())
+                signals.append(self.signals_queue.get_nowait())
         except queue.Empty:
             pass
-        return logs
+        return signals
 
     def get_response(self, call_id: uuid.UUID) -> Optional[WorkerResponse]:
         while True:
@@ -223,3 +255,12 @@ class WorkerDriverProcess(object):
 
             except queue.Empty:
                 time.sleep(0.15)
+
+    def get_progress(self) -> list[ProgressResponse]:
+        progresses = []
+        try:
+            while True:
+                progresses.append(self.progress_queue.get_nowait())
+        except queue.Empty:
+            pass
+        return progresses

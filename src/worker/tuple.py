@@ -43,3 +43,11 @@ class SignalResponse:
     signal: Signal
     match_details: MatchDetails
     driver_code: DriverCode
+
+
+@dataclass
+class ProgressResponse:
+    sender: str
+    value: int
+    max_value: int
+    driver_code: DriverCode
