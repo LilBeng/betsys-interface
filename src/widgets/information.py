@@ -172,4 +172,3 @@ class InformationWidget(QFrame):
             self.print_text.emit(f"{format_match_details(model, AppLang.code)}\n")
 
         self.show_message.emit(self.tr("Операция выполнена"))
-
