@@ -261,22 +261,22 @@ class MainWindow(QMainWindow):
                 partial(self._service.run, DriverCode.VOLLEYBALL, True)
             )
             self.driver_tool_bar.football_stop.triggered.connect(
-                partial(self._service.stop, DriverCode.FOOTBALL, False)
+                partial(self.stop_driver, DriverCode.FOOTBALL, False)
             )
             self.driver_tool_bar.hockey_stop.triggered.connect(
-                partial(self._service.stop, DriverCode.HOCKEY, False)
+                partial(self.stop_driver, DriverCode.HOCKEY, False)
             )
             self.driver_tool_bar.volleyball_stop.triggered.connect(
-                partial(self._service.stop, DriverCode.VOLLEYBALL, False)
+                partial(self.stop_driver, DriverCode.VOLLEYBALL, False)
             )
             self.driver_tool_bar.football_stop_with_checkpoint.triggered.connect(
-                partial(self._service.stop, DriverCode.FOOTBALL, True)
+                partial(self.stop_driver, DriverCode.FOOTBALL, True)
             )
             self.driver_tool_bar.hockey_stop_with_checkpoint.triggered.connect(
-                partial(self._service.stop, DriverCode.HOCKEY, True)
+                partial(self.stop_driver, DriverCode.HOCKEY, True)
             )
             self.driver_tool_bar.volleyball_stop_with_checkpoint.triggered.connect(
-                partial(self._service.stop, DriverCode.VOLLEYBALL, True)
+                partial(self.stop_driver, DriverCode.VOLLEYBALL, True)
             )
             self.driver_tool_bar.football_info.triggered.connect(
                 partial(self.show_information, DriverCode.FOOTBALL)
@@ -529,6 +529,16 @@ class MainWindow(QMainWindow):
         widget.show_message.connect(self.show_message)
         index = self._tab_widget.addTab(widget, icons.get(driver_code), get_driver_name(driver_code, AppLang.code))
         self._tab_widget.setCurrentIndex(index)
+
+    @Slot()
+    def stop_driver(self, driver_code: DriverCode, is_checkpoint: bool) -> None:
+        for index in range(self._tab_widget.count()):
+            widget = self._tab_widget.widget(index)
+            if isinstance(widget, InformationWidget):
+                if widget.driver_code == driver_code:
+                    self.close_tab(index)
+
+        self._service.stop(driver_code, is_checkpoint)
 
     @Slot()
     def close_tab(self, index: int) -> None:
