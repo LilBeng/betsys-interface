@@ -128,7 +128,6 @@ class SignalBorder(QFrame):
             widget = item.widget()
             if isinstance(widget, SignalWidget):
                 if signal.signal_id == widget.signal_id:
-                    self._service.remove_signal(widget.signal_id, widget.driver_code)
                     self._signal_layout.takeAt(index)
                     widget.deleteLater()
 

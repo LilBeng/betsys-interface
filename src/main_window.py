@@ -4,7 +4,7 @@ from functools import partial
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt, QSettings, QByteArray, Slot, QPoint, QThread, QSize, Signal as pysideSignal
+from PySide6.QtCore import Qt, QSettings, QByteArray, Slot, QPoint, QThread, QSize
 from PySide6.QtGui import QIcon, QCloseEvent, QScreen
 from PySide6.QtWidgets import (
     QMainWindow,
@@ -24,8 +24,6 @@ from betsys import (
     SportEventDriver,
     get_driver_name
 )
-from betsys.driver.base import Information
-
 
 from src import ERRORS, DISPLAY
 from src.utils.button import create_icon_push_button
@@ -46,7 +44,6 @@ class MainWindow(QMainWindow):
     """
     Главное окно.
     """
-    add_tab_signal = pysideSignal(Information, DriverCode)
 
     def __init__(
             self,
@@ -363,8 +360,6 @@ class MainWindow(QMainWindow):
 
             self.setCentralWidget(self._tab_widget)
 
-        self.add_tab_signal.connect(self.add_tab)
-
         self._load_config()
 
         self._thread = QThread()
@@ -463,6 +458,11 @@ class MainWindow(QMainWindow):
             self.driver_tool_bar.setEnabled(True)
             self.progress.setVisible(False)
 
+        if driver_code is not None:
+            self.progress.setFormat(f"{get_driver_name(driver_code, AppLang.code)}... %p%")
+        else:
+            self.progress.setFormat("%p%")
+
         self.progress.setMaximum(max_value)
 
         self.progress.setValue(value)
@@ -499,34 +499,37 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def show_information(self, driver_code: DriverCode) -> None:
-        def _add_widget(information: Information) -> None:
-            if information:
-                for index in range(self._tab_widget.count()):
-                    widget = self._tab_widget.widget(index)
-                    if isinstance(widget, InformationWidget):
-                        if widget.driver_code == driver_code:
-                            self.show_message(self.tr("Вкладка с информацией уже открыта"))
-                            return None
+        if self._service.workers.get(driver_code):
+            for index in range(self._tab_widget.count()):
+                widget = self._tab_widget.widget(index)
+                if isinstance(widget, InformationWidget):
+                    if widget.driver_code == driver_code:
+                        self.show_message(self.tr("Вкладка с информацией уже открыта"))
+                        return None
 
-                self.add_tab_signal.emit(information, driver_code)
-
-        self._service.get_object(
-            driver_code,
-            SportEventDriver.__name__,
-            SportEventService.get_name(SportEventDriver, SportEventDriver.information),
-            _add_widget
-        )
+                self.add_tab(driver_code)
+            else:
+                self.show_message(
+                    self.tr("Для выполнения действия запустите драйвер «{}»").format(
+                        get_driver_name(driver_code, AppLang.code)
+                    )
+                )
+        else:
+            self.show_message(
+                self.tr("Драйвер «{}» не инициализирован").format(get_driver_name(driver_code, AppLang.code))
+            )
 
     @Slot()
-    def add_tab(self, information: Information, driver_code: DriverCode) -> None:
+    def add_tab(self, driver_code: DriverCode) -> None:
         icons = {
             DriverCode.FOOTBALL: QIcon(":/resources/icons/football.png"),
             DriverCode.HOCKEY: QIcon(":/resources/icons/hockey.png"),
             DriverCode.VOLLEYBALL: QIcon(":/resources/icons/volleyball.png")
         }
-        widget = InformationWidget(self._service, driver_code, information)
+        widget = InformationWidget(self._service, driver_code)
         widget.print_text.connect(self.print_text)
         widget.show_message.connect(self.show_message)
+        widget.update_progress.connect(self.sync_update_progress)
         index = self._tab_widget.addTab(widget, icons.get(driver_code), get_driver_name(driver_code, AppLang.code))
         self._tab_widget.setCurrentIndex(index)
 

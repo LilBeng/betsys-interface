@@ -164,9 +164,6 @@ class SportEventService(QObject):
                         )
                     )
                 return False
-            elif not response:
-                self.status_message.emit(self.tr("Не удалось получить данные"))
-                return False
 
         return True
 
@@ -232,34 +229,27 @@ class SportEventService(QObject):
 
     @Slot()
     def run(self, driver_code: DriverCode, is_checkpoint: bool) -> None:
-        def check() -> tuple[bool, DriverCode, bool]:
-            return self._check_driver(driver_code), driver_code, is_checkpoint
-
-        worker = self.workers.get(driver_code)
-        if worker:
-            self._start_thread(self._run, check)
-        else:
-            config = self.multi_driver_config.config.get(driver_code)
-            if not config:
-                _logger.warning(f"Driver (code={driver_code}) config not found")
-                self.status_message.emit(
-                    self.tr("Не найдена конфигурация драйвера «{}»").format(
-                        get_driver_name(driver_code, AppLang.code)
-                    )
-                )
-                return None
-
-            worker = WorkerDriverProcess(driver_code, self.db_context.config, config)
-
-            self.workers[driver_code] = worker
-
-            worker.start()
-
+        config = self.multi_driver_config.config.get(driver_code)
+        if not config:
+            _logger.warning(f"Driver (code={driver_code}) config not found")
             self.status_message.emit(
-                self.tr("Драйвер «{}» инициализирован").format(get_driver_name(driver_code, AppLang.code))
+                self.tr("Не найдена конфигурация драйвера «{}»").format(
+                    get_driver_name(driver_code, AppLang.code)
+                )
             )
+            return None
 
-            self._run((True, driver_code, is_checkpoint))
+        worker = WorkerDriverProcess(driver_code, self.db_context.config, config)
+
+        self.workers[driver_code] = worker
+
+        worker.start()
+
+        self.status_message.emit(
+            self.tr("Драйвер «{}» инициализирован").format(get_driver_name(driver_code, AppLang.code))
+        )
+
+        self._run((True, driver_code, is_checkpoint))
 
     @Slot()
     def _run(self, result: tuple[bool, DriverCode, bool]) -> None:
@@ -289,7 +279,6 @@ class SportEventService(QObject):
                     self.status_message.emit(
                         self.tr("Драйвер «{}» начинает работу").format(get_driver_name(driver_code, AppLang.code))
                     )
-
                     worker.call_method(
                         SportEventDriver.__name__,
                         SportEventDriver.run_with_checkpoint.__name__,
@@ -298,6 +287,7 @@ class SportEventService(QObject):
 
                 else:
                     _logger.warning(f"Driver (code={driver_code}) not running")
+
             else:
                 q_date = DatePickerDialog.get_date(parent=self.parent())
                 if q_date:

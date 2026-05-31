@@ -11,7 +11,6 @@ class BaseDialog(QDialog):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
-        self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
 
         self.wheel_blocker = WheelBlocker()
         self.installEventFilter(self.wheel_blocker)

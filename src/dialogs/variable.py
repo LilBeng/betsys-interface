@@ -133,7 +133,7 @@ class BaseH2HDialog(BaseVarDialog):
             self._period.setEnabled(False)
 
         self.central_layout.addRow(self.tr("Команда:"), self._team_code)
-        self.central_layout.addRow(self.tr("Игра:"), self._game_code)
+        self.central_layout.addRow(self.tr("Таблица:"), self._game_code)
         self.central_layout.addRow(self.tr("Тип игры:"), self._encounter_code)
         self.central_layout.addRow(self.tr("Ставка:"), self._bet)
         self.central_layout.addRow(self.tr("Текущая лига:"), self._only_this_league)
@@ -641,7 +641,7 @@ class TableFormDialog(BaseVarDialog):
             self._interval_layout.setEnabled(False)
 
         self.central_layout.addRow(self.tr("Команда:"), self._team_code)
-        self.central_layout.addRow(self.tr("Игра:"), self._game_code)
+        self.central_layout.addRow(self.tr("Таблица:"), self._game_code)
         self.central_layout.addRow(self.tr("Исход:"), self._bet)
         self.central_layout.addRow(self._is_interval, self._interval_layout)
         self.central_layout.addRow(self._bet_stacked)
@@ -713,7 +713,7 @@ class TableTrueDialog(BaseVarDialog):
         self._game_code.setCurrentText(get_game_name(variable.game_code, AppLang.code))
         self._element_row_code.setCurrentText(get_element_row_name(variable.element_row_code, AppLang.code))
 
-        self.central_layout.addRow(self.tr("Игра:"), self._game_code)
+        self.central_layout.addRow(self.tr("Таблица:"), self._game_code)
         self.central_layout.addRow(self.tr("Элемент:"), self._element_row_code)
 
         if isinstance(variable, (TableElementVar, TableTruePositionVar)):
@@ -761,7 +761,7 @@ class TableAverageGoalsDialog(BaseVarDialog):
 
         self._game_code.setCurrentText(self.tr("Забито") if variable.is_scored else self.tr("Пропущено"))
 
-        self.central_layout.addRow(self.tr("Игра:"), self._game_code)
+        self.central_layout.addRow(self.tr("Таблица:"), self._game_code)
         self.central_layout.addRow(self.tr("Параметр:"), self._is_scored)
 
     @Slot()

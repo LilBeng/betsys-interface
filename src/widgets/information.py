@@ -1,22 +1,26 @@
-from PySide6.QtCore import Qt, Slot, Signal as pysideSignal
+from PySide6.QtCore import Qt, Slot, Signal as pysideSignal, QPoint
 from PySide6.QtGui import QIcon, QAction
-from PySide6.QtWidgets import QWidget, QFrame, QVBoxLayout, QScrollArea, QFormLayout, QLabel, QToolBar
-from betsys import DriverCode, CheckPoint
+from PySide6.QtWidgets import QWidget, QFrame, QVBoxLayout, QScrollArea, QFormLayout, QLabel, QToolBar, QMenu
+from betsys import DriverCode, CheckPoint, MatchDetails, format_match_details
 from betsys.driver.base import Information, SportEventDriver
 
+from src.utils.lang import AppLang
 from src.utils.service import SportEventService
 from src.utils.tree import tree_str
+from src.widgets.table import MatchTableWidget
 
 
 class InformationWidget(QFrame):
     print_text = pysideSignal(str)
     show_message = pysideSignal(str)
+    update_progress = pysideSignal(int, int)
+
+    _update = pysideSignal()
 
     def __init__(
             self,
             service: SportEventService,
             driver_code: DriverCode,
-            information: Information,
             *args,
             **kwargs
     ) -> None:
@@ -30,13 +34,13 @@ class InformationWidget(QFrame):
         scroll_area.setWidgetResizable(True)
         scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
 
-        self._run_datetime = QLabel(information.run_datetime.strftime("%d.%m.%Y %H:%M"))
-        self._update_date = QLabel(information.update_date.strftime("%d.%m.%Y"))
-        self._matches_count = QLabel(str(information.matches_count))
-        self._scripts_count = QLabel(str(information.scripts_count))
-        self._signals_count = QLabel(str(information.signals_count))
-        self._jobs_count = QLabel(str(information.jobs_count))
-        self._next_run_job_datetime = QLabel(information.next_run_job_datetime.strftime("%H:%M:%S"))
+        self._run_datetime = QLabel("...")
+        self._update_date = QLabel("...")
+        self._matches_count = QLabel("...")
+        self._scripts_count = QLabel("...")
+        self._signals_count = QLabel("...")
+        self._jobs_count = QLabel("...")
+        self._next_run_job_datetime = QLabel("...")
 
         self._update_info = QAction(
             icon=QIcon(":/resources/icons/update.png"),
@@ -52,18 +56,24 @@ class InformationWidget(QFrame):
 
         bar = QToolBar(self)
 
+        self._table = MatchTableWidget(self)
+        self._table.update_progress.connect(self.update_progress)
+        self._table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._table.customContextMenuRequested.connect(self.show_context_menu)
+
         container = QWidget()
         info_layout = QFormLayout(container)
         info_layout.setSpacing(15)
         info_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         info_layout.addRow(bar)
         info_layout.addRow(self.tr("Дата запуска:"), self._run_datetime)
-        info_layout.addRow(self.tr("Дата текущего обновления:"), self._update_date)
+        info_layout.addRow(self.tr("Дата загрузки матчей:"), self._update_date)
         info_layout.addRow(self.tr("Количество матчей:"), self._matches_count)
         info_layout.addRow(self.tr("Количество активных сценариев:"), self._scripts_count)
         info_layout.addRow(self.tr("Количество активных сигналов:"), self._signals_count)
         info_layout.addRow(self.tr("Запланировано задач:"), self._jobs_count)
         info_layout.addRow(self.tr("Запуск следующей:"), self._next_run_job_datetime)
+        info_layout.addRow(self._table)
 
         scroll_area.setWidget(container)
 
@@ -75,6 +85,10 @@ class InformationWidget(QFrame):
 
         main_layout = QVBoxLayout(self)
         main_layout.addWidget(scroll_area)
+
+        self._update.connect(self.update_table)
+
+        self._update_info.triggered.emit()
 
     @property
     def driver_code(self) -> DriverCode:
@@ -93,13 +107,26 @@ class InformationWidget(QFrame):
                 self._jobs_count.setText(str(information.jobs_count))
                 self._next_run_job_datetime.setText(information.next_run_job_datetime.strftime("%H:%M:%S"))
 
-            self.show_message.emit(self.tr("Операция выполнена"))
+            self._update.emit()
 
         self._service.get_object(
             self.driver_code,
             SportEventDriver.__name__,
             SportEventService.get_name(SportEventDriver, SportEventDriver.information),
             _update_info
+        )
+
+    @Slot()
+    def update_table(self) -> None:
+        def _update_table(match_details: dict[str, MatchDetails]) -> None:
+            if match_details:
+                self._table.set_items(match_details.values()) # noqa
+
+        self._service.get_object(
+            self.driver_code,
+            CheckPoint.__name__,
+            "match_details",
+            _update_table
         )
 
     @Slot()
@@ -120,3 +147,29 @@ class InformationWidget(QFrame):
             "consumed_match_ids",
             _print_info
         )
+
+    @Slot()
+    def show_context_menu(self, position: QPoint) -> None:
+        """
+        Показать контекстное меню.
+
+        :param position: Позиция.
+        """
+        context_menu = QMenu(self)
+
+        if self._table.get_selected_models():
+            action = context_menu.addAction(
+                QIcon(":/resources/icons/console.png"),
+                self.tr("Вывести в консоль")
+            )
+            action.triggered.connect(self._print_match_info)
+
+        context_menu.exec(self._table.mapToGlobal(position))
+
+    @Slot()
+    def _print_match_info(self) -> None:
+        for model in self._table.get_selected_models():
+            self.print_text.emit(f"{format_match_details(model, AppLang.code)}\n")
+
+        self.show_message.emit(self.tr("Операция выполнена"))
+
