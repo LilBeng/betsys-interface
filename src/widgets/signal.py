@@ -47,8 +47,6 @@ class SignalBorder(QFrame):
         super().__init__(*args, **kwargs)
         self._service = service
 
-        self.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Raised)
-
         main_layout = QVBoxLayout(self)
 
         scroll_area = QScrollArea()
@@ -151,7 +149,7 @@ class SignalBorder(QFrame):
             for item in self._signal_layout.items[:]:
                 widget = item.widget()
                 if isinstance(widget, SignalWidget):
-                    self.print_text.emit(f"{widget.text}\n")
+                    self.print_text.emit(f"{widget.text}")
 
             self.show_message.emit(self.tr(f"Информация выведена в консоль"))
         else:
@@ -337,7 +335,7 @@ class SignalWidget(QFrame):
 
     @Slot()
     def _print_data(self) -> None:
-        self.print_text.emit(f"{self.text}\n")
+        self.print_text.emit(f"{self.text}")
 
     @Slot()
     def _save_screen(self) -> None:

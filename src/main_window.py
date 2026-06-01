@@ -97,6 +97,8 @@ class MainWindow(QMainWindow):
 
         if not only_database:
             self.console_widget = ConsoleWidget(self)
+            self.console_widget.show_message.connect(self.show_message)
+
             self.console_dock = QDockWidget(self.tr("Консоль"), self)
             self.console_dock.setObjectName("console")
             self.console_dock.setWindowIcon(QIcon(":/resources/icons/console.png"))

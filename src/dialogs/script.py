@@ -3,13 +3,14 @@ import uuid
 
 from PySide6.QtCore import Qt, Slot, QPoint
 from PySide6.QtGui import QIcon, QAction
-from PySide6.QtWidgets import QMenu, QTabWidget
+from PySide6.QtWidgets import QMenu, QTabWidget, QLineEdit
 from betsys import (
     DBContext,
     ScriptDBModel,
     Script,
     MatchCode,
-    BetCode, SignalTypeCode
+    BetCode,
+    SignalTypeCode
 )
 from qasync import asyncSlot
 
@@ -73,6 +74,11 @@ class ScriptDAODialog(BaseDAODialog):
         self.tab_widget.setVisible(False)
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
 
+        self._search_input = QLineEdit(self)
+        self._search_input.setPlaceholderText(self.tr("Введите текст для поиска ..."))
+        self._search_input.textChanged.connect(self.on_search)
+
+        self.central_layout.addWidget(self._search_input)
         self.central_layout.addWidget(self.tab_widget, alignment=Qt.AlignmentFlag.AlignBottom)
 
         self.central_widget.cellDoubleClicked.connect(self.edit_models)
@@ -284,6 +290,7 @@ class ScriptDAODialog(BaseDAODialog):
 
         if not self.tab_widget.count():
             self.tab_widget.setVisible(False)
+            self._search_input.setEnabled(True)
             self.central_widget.setEnabled(True)
             self.enabled_actions(True)
 
@@ -294,11 +301,19 @@ class ScriptDAODialog(BaseDAODialog):
         else:
             self._create_model(model)
 
+    @Slot()
+    def on_search(self, text: str) -> None:
+        if text.strip():
+            self.central_widget.filter_table_rows(text)
+        else:
+            self.central_widget.show_all_rows()
+
     def add_tab(self, model: ScriptDBModel) -> None:
         widget = ScriptEditorWidget(model)
         widget.save_model_signal.connect(self._save_model)
 
         self.tab_widget.addTab(widget, model.id)
         self.tab_widget.setVisible(True)
+        self._search_input.setEnabled(False)
         self.central_widget.setEnabled(False)
         self.enabled_actions(False)

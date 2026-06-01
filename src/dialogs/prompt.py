@@ -3,7 +3,7 @@ import uuid
 
 from PySide6.QtCore import Qt, Slot, QPoint
 from PySide6.QtGui import QIcon, QAction
-from PySide6.QtWidgets import QMenu, QTabWidget
+from PySide6.QtWidgets import QMenu, QTabWidget, QLineEdit
 from betsys import DBContext, AIPromptDBModel, MatchCode, SignalTypeCode, BetCode
 from qasync import asyncSlot
 
@@ -60,6 +60,11 @@ class PromptDAODialog(BaseDAODialog):
         self.tab_widget.setVisible(False)
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
 
+        self._search_input = QLineEdit(self)
+        self._search_input.setPlaceholderText(self.tr("Введите текст для поиска ..."))
+        self._search_input.textChanged.connect(self.on_search)
+
+        self.central_layout.addWidget(self._search_input)
         self.central_layout.addWidget(self.tab_widget, alignment=Qt.AlignmentFlag.AlignBottom)
 
         self.central_widget.cellDoubleClicked.connect(self.edit_models)
@@ -305,6 +310,13 @@ class PromptDAODialog(BaseDAODialog):
             await self._update_model(model)
         else:
             await self._create_model(model)
+
+    @Slot()
+    def on_search(self, text: str) -> None:
+        if text.strip():
+            self.central_widget.filter_table_rows(text)
+        else:
+            self.central_widget.show_all_rows()
 
     def add_tab(self, model: AIPromptDBModel) -> None:
         widget = PromptEditorWidget(model)

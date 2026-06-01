@@ -1,13 +1,18 @@
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QIcon
+import logging
+
+from PySide6.QtCore import Qt, Signal as pysideSignal, QStandardPaths
+from PySide6.QtGui import QAction, QIcon, QFont
 from PySide6.QtGui import QTextCursor, QKeyEvent
-from PySide6.QtWidgets import QPlainTextEdit, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QPlainTextEdit, QVBoxLayout, QWidget, QFileDialog
 from PySide6.QtWidgets import QToolBar
+
+_logger = logging.getLogger(__name__)
 
 
 class ConsolePlainText(QPlainTextEdit):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.setFont(QFont("Consolas", 12))
         self.setReadOnly(True)
         self.command_mode = False
         self.command_start_pos = 0
@@ -18,7 +23,12 @@ class ConsolePlainText(QPlainTextEdit):
         cursor = self.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
         self.setTextCursor(cursor)
-        self.insertPlainText(text + "\n")
+
+        if self.toPlainText():
+            self.insertPlainText("\n\n" + text)
+        else:
+            self.insertPlainText(text)
+
         self.setReadOnly(True)
         self.ensureCursorVisible()
 
@@ -32,7 +42,7 @@ class ConsolePlainText(QPlainTextEdit):
                 cursor.movePosition(QTextCursor.MoveOperation.End)
                 self.setTextCursor(cursor)
                 if self.toPlainText():
-                    self.insertPlainText("\n> ")
+                    self.insertPlainText("\n\n> ")
                 else:
                     self.insertPlainText("> ")
                 self.command_start_pos = self.textCursor().position()
@@ -41,7 +51,6 @@ class ConsolePlainText(QPlainTextEdit):
                 # Выполнение команды
                 command = self.get_command_text()
                 if command:
-                    self.insertPlainText("\n")
                     self.setReadOnly(True)
                     self.command_mode = False
                     self.execute_command(command)
@@ -63,7 +72,7 @@ class ConsolePlainText(QPlainTextEdit):
             self.clear()
             return
         else:
-            self.add_text(self.tr("\nНеизвестная команда: {}").format(command))
+            self.add_text(self.tr("Неизвестная команда: {}").format(command))
     
     def clear(self) -> None:
         self.command_mode = False
@@ -75,6 +84,8 @@ class ConsoleWidget(QWidget):
     """
     Виджет консоли.
     """
+    show_message = pysideSignal(str)
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         bar = QToolBar(self)
@@ -88,7 +99,15 @@ class ConsoleWidget(QWidget):
         )
         clear.triggered.connect(self._text.clear)
 
+        write = QAction(
+            icon=QIcon(":/resources/icons/save.png"),
+            toolTip=self.tr("Сохранить в файл"),
+            parent=self
+        )
+        write.triggered.connect(self.write)
+
         bar.addAction(clear)
+        bar.addAction(write)
 
         layout = QVBoxLayout(self)
         layout.addWidget(bar)
@@ -96,3 +115,22 @@ class ConsoleWidget(QWidget):
 
     def add_text(self, text: str) -> None:
         self._text.add_text(text)
+
+    def write(self) -> None:
+        file_path, _ = QFileDialog.getSaveFileName(
+            self.parent(),
+            self.tr("Сохранить файл"),
+            QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation),
+            self.tr("Текстовые файлы (*.txt);")
+        )
+
+        if file_path:
+            try:
+                with open(file_path, 'w', encoding='utf-8') as file:
+                    file.write(self._text.toPlainText())
+
+                self.show_message.emit(self.tr("Файл сохранен"))
+            except Exception as exception:
+                _logger.exception(exception)
+
+                self.show_message.emit(self.tr("Не удалось сохранить файл"))

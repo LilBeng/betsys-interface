@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt, Slot, Signal as pysideSignal, QPoint
 from PySide6.QtGui import QIcon, QAction
-from PySide6.QtWidgets import QWidget, QFrame, QVBoxLayout, QScrollArea, QFormLayout, QLabel, QToolBar, QMenu
+from PySide6.QtWidgets import QWidget, QFrame, QVBoxLayout, QScrollArea, QFormLayout, QLabel, QToolBar, QMenu, QLineEdit
 from betsys import DriverCode, CheckPoint, MatchDetails, format_match_details
 from betsys.driver.base import Information, SportEventDriver
 
@@ -27,8 +27,6 @@ class InformationWidget(QFrame):
         super().__init__(*args, **kwargs)
         self._service = service
         self._driver_code = driver_code
-
-        self.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Raised)
 
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
@@ -61,6 +59,10 @@ class InformationWidget(QFrame):
         self._table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._table.customContextMenuRequested.connect(self.show_context_menu)
 
+        self._search_input = QLineEdit(self)
+        self._search_input.setPlaceholderText(self.tr("Введите текст для поиска ..."))
+        self._search_input.textChanged.connect(self.on_search)
+
         container = QWidget()
         info_layout = QFormLayout(container)
         info_layout.setSpacing(15)
@@ -74,6 +76,7 @@ class InformationWidget(QFrame):
         info_layout.addRow(self.tr("Запланировано задач:"), self._jobs_count)
         info_layout.addRow(self.tr("Запуск следующей:"), self._next_run_job_datetime)
         info_layout.addRow(self._table)
+        info_layout.addRow(self._search_input)
 
         scroll_area.setWidget(container)
 
@@ -169,6 +172,13 @@ class InformationWidget(QFrame):
     @Slot()
     def _print_match_info(self) -> None:
         for model in self._table.get_selected_models():
-            self.print_text.emit(f"{format_match_details(model, AppLang.code)}\n")
+            self.print_text.emit(f"{format_match_details(model, AppLang.code)}")
 
         self.show_message.emit(self.tr("Операция выполнена"))
+
+    @Slot()
+    def on_search(self, text: str) -> None:
+        if text.strip():
+            self._table.filter_table_rows(text)
+        else:
+            self._table.show_all_rows()

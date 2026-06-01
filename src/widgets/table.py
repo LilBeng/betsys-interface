@@ -8,7 +8,9 @@ from betsys import (
     get_match_name,
     get_total_bet_name,
     AIPromptDBModel,
-    get_signal_type_name, MatchDetails, get_match_status_name
+    get_signal_type_name,
+    MatchDetails,
+    get_match_status_name
 )
 
 from src.utils.lang import AppLang
@@ -107,6 +109,21 @@ class BaseTableWidget(QTableWidget):
                 return True
 
         return False
+
+    def filter_table_rows(self, search_text: str) -> None:
+        for row in range(self.rowCount()):
+            found = False
+            for col in range(self.columnCount()):
+                item = self.item(row, col)
+                if item and search_text.lower() in item.text().lower():
+                    found = True
+                    break
+
+            self.setRowHidden(row, not found)
+
+    def show_all_rows(self) -> None:
+        for row in range(self.rowCount()):
+            self.setRowHidden(row, False)
 
     def add_item(self, model: Any) -> None:
         ...
