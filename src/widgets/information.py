@@ -1,6 +1,19 @@
-from PySide6.QtCore import Qt, Slot, Signal as pysideSignal, QPoint
+import logging
+
+from PySide6.QtCore import Qt, Slot, Signal as pysideSignal, QPoint, QStandardPaths
 from PySide6.QtGui import QIcon, QAction
-from PySide6.QtWidgets import QWidget, QFrame, QVBoxLayout, QScrollArea, QFormLayout, QLabel, QToolBar, QMenu, QLineEdit
+from PySide6.QtWidgets import (
+    QWidget,
+    QFrame,
+    QVBoxLayout,
+    QScrollArea,
+    QFormLayout,
+    QLabel,
+    QToolBar,
+    QMenu,
+    QLineEdit,
+    QFileDialog
+)
 from betsys import DriverCode, CheckPoint, MatchDetails, format_match_details
 from betsys.driver.base import Information, SportEventDriver
 
@@ -8,6 +21,8 @@ from src.utils.lang import AppLang
 from src.utils.service import SportEventService
 from src.utils.tree import tree_str
 from src.widgets.table import MatchTableWidget
+
+_logger = logging.getLogger(__name__)
 
 
 class InformationWidget(QFrame):
@@ -48,13 +63,20 @@ class InformationWidget(QFrame):
 
         self._print_info = QAction(
             icon=QIcon(":/resources/icons/console.png"),
-            text=self.tr("Вывести информацию в консоль"),
+            text=self.tr("Вывести зависимости в консоль"),
+            parent=self
+        )
+
+        self._save_checkpoint = QAction(
+            icon=QIcon(":/resources/icons/save.png"),
+            text=self.tr("Сохранить контрольную точку"),
             parent=self
         )
 
         bar = QToolBar(self)
 
         self._table = MatchTableWidget(self)
+        self._table.horizontalHeader().setMinimumSectionSize(150)
         self._table.update_progress.connect(self.update_progress)
         self._table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._table.customContextMenuRequested.connect(self.show_context_menu)
@@ -81,10 +103,12 @@ class InformationWidget(QFrame):
         scroll_area.setWidget(container)
 
         bar.addAction(self._update_info)
+        bar.addAction(self._save_checkpoint)
         bar.addAction(self._print_info)
 
         self._print_info.triggered.connect(self.print_info)
         self._update_info.triggered.connect(self.update_info)
+        self._save_checkpoint.triggered.connect(self.save_checkpoint)
 
         main_layout = QVBoxLayout(self)
         main_layout.addWidget(scroll_area)
@@ -182,3 +206,14 @@ class InformationWidget(QFrame):
             self._table.filter_table_rows(text)
         else:
             self._table.show_all_rows()
+
+    @Slot()
+    def save_checkpoint(self) -> None:
+        file_path, _ = QFileDialog.getSaveFileName(
+            self.parent(),
+            self.tr("Сохранить файл"),
+            QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation),
+            self.tr("Файлы контрольной точки (*.cp)")
+        )
+        if file_path:
+            self._service.save_checkpoint(file_path, self._driver_code)

@@ -13,7 +13,8 @@ from betsys import (
     CheckPoint,
     Signal,
     get_driver_name,
-    MatchDetails, MatchCode
+    MatchDetails,
+    MatchCode
 )
 from betsys.driver.base import Information
 from qasync import asyncSlot
@@ -76,17 +77,21 @@ class SportEventService(QObject):
                 return name
         return None
 
-    @staticmethod
     def _get_response(
+            self,
             worker: WorkerDriverProcess,
             target_name: str,
             method_name: str,
             *args,
             **kwargs
     ) -> Optional[WorkerResponse]:
+        self.update_progress.emit(-1, -1, None)
+
         call_id = worker.call_method(target_name, method_name, *args, **kwargs)
 
         response = worker.get_response(call_id)
+
+        self.update_progress.emit(1, 1, None)
         if response and response.status == StatusCode.SUCCESS:
             return response
 
@@ -180,6 +185,47 @@ class SportEventService(QObject):
         for worker in self.workers.values():
             worker.shutdown()
 
+    def get_checkpoint(self, callback: Callable, driver_code: DriverCode) -> None:
+        def check() -> CheckPoint:
+            if self._check_driver(driver_code, False):
+                response = self._get_response(
+                    self.workers.get(driver_code),
+                    SportEventDriver.__name__,
+                    self.get_name(SportEventDriver, SportEventDriver.checkpoint),
+                    True
+                )
+
+                if response and response.status == StatusCode.SUCCESS:
+                    return response.result
+
+        self._start_thread(callback, check)
+
+    def save_checkpoint(self, file_path: str, driver_code: DriverCode) -> None:
+        def _save(checkpoint: CheckPoint) -> None:
+            if checkpoint:
+                self.update_progress.emit(-1, -1, driver_code)
+                try:
+                    checkpoint.save(file_path)
+
+                    self.status_message.emit(self.tr("Контрольная точка сохранена"))
+                except Exception as exception:
+                    _logger.exception(exception)
+                    QMessageBox.critical(
+                        self.parent(),
+                        self.tr("Сохранение файла"),
+                        self.tr("Не удалось сохранить файл")
+                    )
+
+                self.update_progress.emit(1, 1, driver_code)
+            else:
+                self.status_message.emit(
+                    self.tr("Для выполнения действия запустите драйвер «{}»").format(
+                        get_driver_name(driver_code, AppLang.code)
+                    )
+                )
+
+        self.get_checkpoint(_save, driver_code)
+
     def remove_signal(self, signal_id: str, driver_code: DriverCode) -> None:
         self._start_thread(None, self._remove_signal, signal_id, driver_code)
 
@@ -269,12 +315,16 @@ class SportEventService(QObject):
                 )
 
                 if file_path:
+                    self.update_progress.emit(-1, -1, driver_code)
+
                     try:
                         checkpoint = CheckPoint.load(file_path)
                     except Exception as exception:
                         _logger.exception(exception)
                         QMessageBox.critical(self.parent(), self.tr("Запуск"), self.tr("Не удалось открыть файл"))
                         return None
+
+                    self.update_progress.emit(1, 1, driver_code)
 
                     self.status_message.emit(
                         self.tr("Драйвер «{}» начинает работу").format(get_driver_name(driver_code, AppLang.code))
@@ -341,7 +391,11 @@ class SportEventService(QObject):
                             True
                         )
                         if response:
+                            self.update_progress.emit(-1, -1, driver_code)
+
                             response.result.save(file_path)
+
+                            self.update_progress.emit(1, 1, driver_code)
 
                             self.status_message.emit(
                                 self.tr("Драйвер «{}» остановлен").format(get_driver_name(
@@ -355,6 +409,9 @@ class SportEventService(QObject):
                         del response
                     except Exception as exception:
                         _logger.exception(exception)
+
+                        self.update_progress.emit(1, 1, driver_code)
+
                         QMessageBox.critical(
                             self.parent(),
                             self.tr("Остановка"),

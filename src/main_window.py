@@ -451,7 +451,7 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def sync_update_progress(self, value: int, max_value: int, driver_code: Optional[DriverCode] = None) -> None:
-        if value != max_value:
+        if value != max_value or (value == -1 and max_value == -1):
             self.menu_bar.setEnabled(False)
             self.driver_tool_bar.setEnabled(False)
             self.progress.setVisible(True)
@@ -465,9 +465,11 @@ class MainWindow(QMainWindow):
         else:
             self.progress.setFormat("%p%")
 
-        self.progress.setMaximum(max_value)
-
-        self.progress.setValue(value)
+        if value == -1 and max_value == -1:
+            self.progress.setRange(0, 0)
+        else:
+            self.progress.setMaximum(max_value)
+            self.progress.setValue(value)
 
     @Slot()
     def show_context_menu(self, position: QPoint) -> None:
