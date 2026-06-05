@@ -3,6 +3,7 @@ import sys
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
+from functools import partial
 from statistics import mean
 from typing import Optional
 
@@ -29,11 +30,17 @@ from src.utils.cache import DataCache
 from src.utils.lang import AppLang
 
 
-def _decompress_wrapper(obj):
-    try:
-        return MatchDetails.decompress(obj)
-    except Exception as e:
+def _validate(script: Script, match_details: MatchDetails) -> Optional[MatchDetails]:
+    # Если указаны лиги
+    if not script.validate_league(match_details):
         return None
+
+    # Если указаны дни недели
+    if not script.validate_weekdays(match_details):
+        return None
+
+    if script.validate_match_details(match_details):
+        return match_details
 
 
 class Forecast(QObject):
@@ -42,7 +49,6 @@ class Forecast(QObject):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self._cache = DataCache()
 
     def _parallel_decompress(self, models: list[MatchDetailsDBModel]) -> list[MatchDetails]:
         objects = [model.obj for model in models]
@@ -54,6 +60,24 @@ class Forecast(QObject):
         results = []
         with ProcessPoolExecutor(max_workers=workers) as executor:
             for index, result in enumerate(executor.map(MatchDetails.decompress, objects), 1):
+                if result:
+                    results.append(result)
+
+                # Обновляем прогресс каждые 10%
+                if index % max(1, total // 10) == 0 or index == total:
+                    self.update_progress.emit(index, total)
+
+        return results
+
+    def _parallel_validate(self, script, objects: list[MatchDetails]) -> list[MatchDetails]:
+        total = len(objects)
+        workers = max(1, multiprocessing.cpu_count() - 1)
+
+        self.update_progress.emit(0, total)
+
+        results = []
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            for index, result in enumerate(executor.map(partial(_validate, script), objects), 1):
                 if result:
                     results.append(result)
 
@@ -328,6 +352,8 @@ class Forecast(QObject):
         self.send_message.emit(self.tr("Информация по дням недели: {}").format(weekdays_info))
         self.send_message.emit(self.tr("Информация по лигам: {}").format(leagues_info))
 
+        cache = DataCache()
+
         matches = []
         flags = []
         errors = []
@@ -336,17 +362,17 @@ class Forecast(QObject):
         leagues_flags = []
 
         if not in_memory:
-            self._cache.details.clear()
+            cache.details.clear()
 
-        leagues = self._cache.get_leagues(script.match_code, True)
-        details = self._cache.get_details(script.match_code)
+        leagues = cache.get_leagues(script.match_code, True)
+        details = cache.get_details(script.match_code)
 
         if not details:
-            models = self._cache.get_matches(script.match_code)
+            models = cache.get_matches(script.match_code)
             details = self._parallel_decompress(models)
 
             if in_memory:
-                self._cache.details.extend(details)
+                cache.details.extend(details)
 
         self.send_message.emit(self.tr("Количество лиг: {}").format(len(leagues)))
         self.send_message.emit(self.tr("Количество матчей: {}").format(len(details)))
@@ -354,21 +380,16 @@ class Forecast(QObject):
         for index, match_details in enumerate(details, start=1):
             # Если указаны лиги
             if not script.validate_league(match_details):
-                del match_details
                 continue
 
             # Если указаны дни недели
             if not script.validate_weekdays(match_details):
-                del match_details
                 continue
 
             if script.validate_match_details(match_details):
                 matches.append(match_details)
-            else:
-                del match_details
 
             self.update_progress.emit(index, len(details))
-
         if matches:
             self.send_message.emit(self.tr("\n>>> Общие данные\n"))
 
@@ -554,6 +575,7 @@ class Forecast(QObject):
         del weekdays_flags
         del leagues_flags
         del script
+        del details
 
         self.send_message.emit(
             self.tr("\nКонец анализа: {}").format(datetime.today().strftime("%d.%m.%Y, %H:%M:%S"))

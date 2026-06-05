@@ -10,10 +10,14 @@ from betsys import (
     AIPromptDBModel,
     get_signal_type_name,
     MatchDetails,
-    get_match_status_name
+    get_match_status_name,
+    get_table_headers,
+    Row, get_h2h_headers,
+    MatchReport
 )
 
 from src.utils.lang import AppLang
+from src.utils.delegate import ResultDelegate
 
 _logger = logging.getLogger(__name__)
 
@@ -343,3 +347,80 @@ class MatchTableWidget(BaseTableWidget):
             item.setData(Qt.ItemDataRole.UserRole, model)
 
         self.show_message.emit(self.tr("Модель [{}] обновлена").format(model.match.match_id))
+
+
+class TableWidget(BaseTableWidget):
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(get_table_headers(AppLang.code), *args, **kwargs)
+
+        self.setItemDelegateForColumn(len(self._labels) - 1, ResultDelegate(self))
+
+    def add_item(self, row: Row) -> None:
+        self.setSortingEnabled(False)
+
+        self.insertRow(self.rowCount())
+
+        for index, value in enumerate(
+                [
+                    row.position,
+                    row.team_name,
+                    row.total_matches,
+                    row.win_matches,
+                    row.draw_matches,
+                    row.loss_matches,
+                    row.goals_scored,
+                    row.goals_conceded,
+                    row.points,
+                    [form.result_code for form in row.team_form]
+                ]
+        ):
+            if index != len(self._labels) - 1:
+                item = QTableWidgetItem(value)
+                item.setToolTip(str(value))
+            else:
+                item = QTableWidgetItem()
+
+            item.setData(Qt.ItemDataRole.DisplayRole, value)
+            item.setData(Qt.ItemDataRole.UserRole, value)
+
+            self.setItem(self.rowCount() - 1, index, item)
+
+        self.setSortingEnabled(True)
+
+
+class H2HWidget(BaseTableWidget):
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(get_h2h_headers(AppLang.code), *args, **kwargs)
+
+        self.setItemDelegateForColumn(len(self._labels) - 1, ResultDelegate(self))
+
+    def add_item(self, report: MatchReport) -> None:
+        self.setSortingEnabled(False)
+
+        self.insertRow(self.rowCount())
+
+        for index, value in enumerate(
+                [
+                    report.home_team_name,
+                    report.away_team_name,
+                    report.match_datetime.strftime("%d/%m/%Y"),
+                    report.league_name,
+                    report.home_team_score,
+                    report.away_team_score,
+                    [report.result_code]
+                ]
+        ):
+            if index != len(self._labels) - 1:
+                item = QTableWidgetItem(value)
+                item.setToolTip(str(value))
+            else:
+                item = QTableWidgetItem()
+
+            item.setData(Qt.ItemDataRole.DisplayRole, value)
+            item.setData(Qt.ItemDataRole.UserRole, value)
+
+            self.setItem(self.rowCount() - 1, index, item)
+
+        self.setSortingEnabled(True)

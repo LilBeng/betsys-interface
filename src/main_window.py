@@ -554,8 +554,11 @@ class MainWindow(QMainWindow):
         widget.deleteLater()
 
     def _clear_cache(self) -> None:
-        def finished():
+        def _clear():
+            self._service.update_progress.emit(-1, -1, None)
+            cache = DataCache()
+            cache.clear()
             self.show_message(self.tr("Память очищена"))
+            self._service.update_progress.emit(1, 1, None)
 
-        cache = DataCache()
-        self._worker.start(finished, cache.clear)
+        self._worker.start(None, _clear)

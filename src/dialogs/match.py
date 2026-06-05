@@ -1,15 +1,19 @@
 from typing import Optional, Callable
 
 from PySide6.QtCore import QThread, QSize
-from PySide6.QtGui import QIcon, QAction, Qt
-from PySide6.QtWidgets import QPlainTextEdit, QLabel, QWidget, QSizePolicy, QComboBox, QFormLayout, QHBoxLayout
-from betsys import DBContext, MatchCode
+from PySide6.QtGui import QIcon, QAction, Qt, QScreen
+from PySide6.QtWidgets import QPlainTextEdit, QLabel, QWidget, QSizePolicy, QComboBox, QFormLayout, QHBoxLayout, \
+    QStackedLayout, QApplication
+from betsys import DBContext, MatchCode, MatchDetails, DriverCode, get_driver_name
 from qasync import asyncSlot
 
+from src.dialogs.base import BaseDialog
 from src.dialogs.dao import BaseDAODialog
 from src.utils.cache import DataCache
 from src.utils.forecast import Forecast
+from src.utils.lang import AppLang
 from src.utils.worker import Worker
+from src.widgets.match import MatchDetailsWidget
 from src.widgets.switch import Switch
 
 
@@ -167,3 +171,39 @@ class MatchDetailsDAODialog(BaseDAODialog):
     def _finished(self) -> None:
         self.finished()
         self.show_message(self.tr("Анализ сценария завершен"))
+
+
+class MatchDetailsDialog(BaseDialog):
+    def __init__(self, driver_code: DriverCode, matches: list[MatchDetails], *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.setGeometry(0, 0, 800, 600)
+
+        geo = self.frameGeometry()
+        geo.moveCenter(QScreen.availableGeometry(QApplication.primaryScreen()).center())
+        self.move(geo.topLeft())
+
+        if driver_code == DriverCode.FOOTBALL:
+            self.setWindowIcon(QIcon(":/resources/icons/football.png"))
+        elif driver_code == DriverCode.HOCKEY:
+            self.setWindowIcon(QIcon(":/resources/icons/hockey.png"))
+        else:
+            self.setWindowIcon(QIcon(":/resources/icons/volleyball.png"))
+
+        self.setWindowTitle(get_driver_name(driver_code, AppLang.code))
+
+        self._box = QComboBox(self)
+        self._box.addItems([match.match.match_id for match in matches])
+        self._box.currentIndexChanged.connect(self._changed)
+
+        self._stacked_layout = QStackedLayout()
+        for match in matches:
+            widget = MatchDetailsWidget(match, parent=self)
+            self._stacked_layout.addWidget(widget)
+
+        layout = QFormLayout(self)
+        layout.addRow(self.tr("Идентификатор матча:"), self._box)
+        layout.addRow(self._stacked_layout)
+
+    def _changed(self, index: int) -> None:
+        self._stacked_layout.setCurrentIndex(index)

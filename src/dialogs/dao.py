@@ -17,7 +17,8 @@ class BaseDAODialog(QDialog):
             central_widget: Any,
             title: str,
             icon: QIcon,
-            *args, **kwargs
+            *args,
+            **kwargs
     ) -> None:
         super().__init__(*args, **kwargs)
         self.db_context = db_context

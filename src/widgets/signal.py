@@ -24,10 +24,11 @@ from betsys import (
     format_signal,
     get_risk_name,
     get_signal_type_name,
-    get_driver_name
+    get_driver_name, CheckPoint
 )
 
 from src.dialogs.chat import ChatDialog
+from src.dialogs.match import MatchDetailsDialog
 from src.layouts.flow import FlowLayout
 from src.utils.blocker import WheelBlocker
 from src.utils.button import create_icon_push_button
@@ -42,6 +43,8 @@ class SignalBorder(QFrame):
     update_progress = pysideSignal(int, int)
     show_message = pysideSignal(str)
     print_text = pysideSignal(str)
+
+    _show_match_dialog = pysideSignal(DriverCode, MatchDetails)
 
     def __init__(self, service: SportEventService, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -62,6 +65,8 @@ class SignalBorder(QFrame):
         scroll_area.setWidget(container)
         main_layout.addWidget(scroll_area)
 
+        self._show_match_dialog.connect(self._show_match)
+
     @Slot()
     def add_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
         """
@@ -74,6 +79,7 @@ class SignalBorder(QFrame):
         widget = SignalWidget(signal, match_details, driver_code, self)
         widget.delete_signal.connect(self._delete_signal)
         widget.print_text.connect(self.print_text.emit)
+        widget.show_update_match.connect(self._get_match)
         self._signal_layout.addWidget(widget)
 
     @Slot()
@@ -182,6 +188,24 @@ class SignalBorder(QFrame):
 
             self.show_message.emit(self.tr(f"Сигналы не найдены"))
 
+    @Slot()
+    def _get_match(self, match_id: str, driver_code: DriverCode) -> None:
+        def _show_dialog(match_details: MatchDetails) -> None:
+            self._show_match_dialog.emit(driver_code, match_details)
+
+        self._service.get_object(
+            _show_dialog,
+            driver_code,
+            CheckPoint.__name__,
+            CheckPoint.get_match_details.__name__,
+            match_id
+        )
+
+    @Slot()
+    def _show_match(self, driver_code: DriverCode, match_details: MatchDetails) -> None:
+        dialog = MatchDetailsDialog(driver_code, [match_details])
+        dialog.exec()
+
 
 class SignalWidget(QFrame):
     """
@@ -189,6 +213,7 @@ class SignalWidget(QFrame):
     """
     delete_signal = pysideSignal(str, DriverCode)
     print_text = pysideSignal(str)
+    show_update_match = pysideSignal(str, DriverCode)
 
     def __init__(
             self,
@@ -196,7 +221,8 @@ class SignalWidget(QFrame):
             match_details: MatchDetails,
             driver_code: DriverCode,
             parent: Optional[QWidget] = None,
-            *args, **kwargs
+            *args,
+            **kwargs
     ) -> None:
         super().__init__(parent, *args, **kwargs)
         self._signal = signal
@@ -316,6 +342,7 @@ class SignalWidget(QFrame):
         screen = menu.addAction(QIcon(":/resources/icons/screen.png"), self.tr("Сохранить карточку"))
         delete = menu.addAction(QIcon(":/resources/icons/delete.png"), self.tr("Удалить"))
         print_data = menu.addAction(QIcon(":/resources/icons/console.png"), self.tr("Вывести в консоль"))
+        show_match = menu.addAction(QIcon(":/resources/icons/info.png"), self.tr("Показать матч"))
 
         if self._signal.recommendation and self._signal.recommendation.messages:
             menu.addSeparator()
@@ -325,6 +352,7 @@ class SignalWidget(QFrame):
         screen.triggered.connect(self._save_screen)
         delete.triggered.connect(self._delete)
         print_data.triggered.connect(self._print_data)
+        show_match.triggered.connect(self._show_match)
 
         menu.exec(self.mapToGlobal(position))
 
@@ -336,6 +364,14 @@ class SignalWidget(QFrame):
     @Slot()
     def _print_data(self) -> None:
         self.print_text.emit(f"{self.text}")
+
+    @Slot()
+    def _show_match(self) -> None:
+        if self._match_details.match.match_summary.match_status_code == MatchStatusCode.COMPLETED:
+            dialog = MatchDetailsDialog(self._driver_code, [self._match_details])
+            dialog.exec()
+        else:
+            self.show_update_match.emit(self._match_details.match.match_id, self._driver_code)
 
     @Slot()
     def _save_screen(self) -> None:

@@ -178,57 +178,6 @@ class SportEventService(QObject):
         else:
             self.status_message.emit(self.tr("Дождитесь завершения предыдущего действия"))
 
-    def shutdown_workers(self) -> None:
-        """
-        Остановить процессы.
-        """
-        for worker in self.workers.values():
-            worker.shutdown()
-
-    def get_checkpoint(self, callback: Callable, driver_code: DriverCode) -> None:
-        def check() -> CheckPoint:
-            if self._check_driver(driver_code, False):
-                response = self._get_response(
-                    self.workers.get(driver_code),
-                    SportEventDriver.__name__,
-                    self.get_name(SportEventDriver, SportEventDriver.checkpoint),
-                    True
-                )
-
-                if response and response.status == StatusCode.SUCCESS:
-                    return response.result
-
-        self._start_thread(callback, check)
-
-    def save_checkpoint(self, file_path: str, driver_code: DriverCode) -> None:
-        def _save(checkpoint: CheckPoint) -> None:
-            if checkpoint:
-                self.update_progress.emit(-1, -1, driver_code)
-                try:
-                    checkpoint.save(file_path)
-
-                    self.status_message.emit(self.tr("Контрольная точка сохранена"))
-                except Exception as exception:
-                    _logger.exception(exception)
-                    QMessageBox.critical(
-                        self.parent(),
-                        self.tr("Сохранение файла"),
-                        self.tr("Не удалось сохранить файл")
-                    )
-
-                self.update_progress.emit(1, 1, driver_code)
-            else:
-                self.status_message.emit(
-                    self.tr("Для выполнения действия запустите драйвер «{}»").format(
-                        get_driver_name(driver_code, AppLang.code)
-                    )
-                )
-
-        self.get_checkpoint(_save, driver_code)
-
-    def remove_signal(self, signal_id: str, driver_code: DriverCode) -> None:
-        self._start_thread(None, self._remove_signal, signal_id, driver_code)
-
     def _remove_signal(self, signal_id: str, driver_code: DriverCode) -> None:
         """
         Удалить сигнал.
@@ -250,52 +199,6 @@ class SportEventService(QObject):
                 _logger.info(f"Signal (signal id={signal_id}, driver code={driver_code}) not deleted")
         else:
             _logger.info(f"Signal (signal id={signal_id}, driver code={driver_code}) not deleted")
-
-    def fing_signal_ids(self, callback: Callable) -> None:
-        """
-        Получить идентификаторы всех сигналов.
-
-        :return: Список идентификаторов.
-        """
-        def get_signals() -> list[str]:
-            signals_id = []
-            for worker in self.workers.values():
-                response = self._get_response(
-                    worker,
-                    CheckPoint.__name__,
-                    "signals"
-                )
-                if response and response.result:
-                    for signal_id in response.result:
-                        signals_id.append(signal_id)
-
-            return signals_id
-
-        self._start_thread(callback, get_signals)
-
-    @Slot()
-    def run(self, driver_code: DriverCode, is_checkpoint: bool) -> None:
-        config = self.multi_driver_config.config.get(driver_code)
-        if not config:
-            _logger.warning(f"Driver (code={driver_code}) config not found")
-            self.status_message.emit(
-                self.tr("Не найдена конфигурация драйвера «{}»").format(
-                    get_driver_name(driver_code, AppLang.code)
-                )
-            )
-            return None
-
-        worker = WorkerDriverProcess(driver_code, self.db_context.config, config)
-
-        self.workers[driver_code] = worker
-
-        worker.start()
-
-        self.status_message.emit(
-            self.tr("Драйвер «{}» инициализирован").format(get_driver_name(driver_code, AppLang.code))
-        )
-
-        self._run((True, driver_code, is_checkpoint))
 
     @Slot()
     def _run(self, result: tuple[bool, DriverCode, bool]) -> None:
@@ -350,20 +253,6 @@ class SportEventService(QObject):
                     worker.call_method(SportEventDriver.__name__, SportEventDriver.run.__name__, started_date)
                 else:
                     _logger.warning(f"Driver (code={driver_code}) not running")
-
-    @Slot()
-    def stop(self, driver_code: DriverCode, is_checkpoint: bool) -> None:
-        def check() -> tuple[bool, DriverCode, bool]:
-            return self._check_driver(driver_code, False), driver_code, is_checkpoint
-
-        worker = self.workers.get(driver_code)
-        if worker:
-            self._start_thread(self._stop, check)
-        else:
-            _logger.warning(f"Driver (code={driver_code}) not found")
-            self.status_message.emit(
-                self.tr("Драйвер «{}» не инициализирован").format(get_driver_name(driver_code, AppLang.code))
-            )
 
     @Slot()
     def _stop(self, result: tuple[bool, DriverCode, bool]) -> None:
@@ -437,36 +326,6 @@ class SportEventService(QObject):
             )
 
     @Slot()
-    def get_object(
-            self,
-            driver_code: DriverCode,
-            target_name: str,
-            method_name: str,
-            callback: Optional[callable] = None
-    ) -> None:
-        def check() -> Optional[Information]:
-            if self._check_driver(driver_code, False):
-                worker = self.workers.get(driver_code)
-                if worker:
-                    response = self._get_response(worker, target_name, method_name)
-                    if response and response.status == StatusCode.SUCCESS:
-                        return response.result
-                    else:
-                        self.status_message.emit(self.tr("Не удалось получить данные"))
-                else:
-                    self.status_message.emit(
-                        self.tr("Драйвер «{}» не инициализирован").format(get_driver_name(driver_code, AppLang.code))
-                    )
-
-            return None
-
-        self._start_thread(callback, check)
-
-    @Slot()
-    def update_data(self, driver_code: DriverCode, is_script: bool) -> None:
-        self._start_thread(None, self._update_data, driver_code, is_script)
-
-    @Slot()
     def _update_data(self, driver_code: DriverCode, is_script: bool) -> None:
         """
         Обновить сценарии.
@@ -512,13 +371,6 @@ class SportEventService(QObject):
             self.status_message.emit(
                 self.tr("Драйвер «{}» не инициализирован").format(get_driver_name(driver_code, AppLang.code))
             )
-
-    @Slot()
-    def download_leagues(self, driver_code: DriverCode) -> None:
-        def check() -> tuple[bool, DriverCode]:
-            return self._check_driver(driver_code), driver_code
-
-        self._start_thread(self._download_leagues, check)
 
     @asyncSlot()
     async def _download_leagues(self, result: tuple[bool, DriverCode]) -> None:
@@ -573,13 +425,6 @@ class SportEventService(QObject):
                 )
 
     @Slot()
-    def edit_driver_config(self, driver_code: DriverCode) -> None:
-        def check() -> tuple[bool, DriverCode]:
-            return self._check_driver(driver_code), driver_code
-
-        self._start_thread(self._edit_driver_config, check)
-
-    @Slot()
     def _edit_driver_config(self, result: tuple[bool, DriverCode]) -> None:
         """
         Редактировать конфигурацию драйвера.
@@ -616,18 +461,6 @@ class SportEventService(QObject):
 
                     self.status_message.emit(self.tr("Не удалось сохранить конфигурацию"))
 
-    @Slot()
-    def edit_dao_config(self):
-        def check() -> bool:
-            for driver_code in self.workers:
-                flag = self._check_driver(driver_code)
-                if not flag:
-                    return False
-
-            return True
-
-        self._start_thread(self._edit_dao_config, check)
-
     @asyncSlot()
     async def _edit_dao_config(self, flag: bool) -> None:
         """
@@ -662,6 +495,165 @@ class SportEventService(QObject):
                     _logger.exception(exception)
 
                     self.status_message.emit(self.tr("Не удалось обновить конфигурацию БД"))
+
+    def shutdown_workers(self) -> None:
+        """
+        Остановить процессы.
+        """
+        for worker in self.workers.values():
+            worker.shutdown()
+
+    @Slot()
+    def get_object(
+            self,
+            callback: Optional[callable],
+            driver_code: DriverCode,
+            target_name: str,
+            method_name: str,
+            *args,
+            **kwargs
+    ) -> None:
+        def check() -> Optional[Information]:
+            if self._check_driver(driver_code, False):
+                worker = self.workers.get(driver_code)
+                if worker:
+                    response = self._get_response(worker, target_name, method_name, *args, **kwargs)
+                    if response and response.status == StatusCode.SUCCESS:
+                        return response.result
+                    else:
+                        self.status_message.emit(self.tr("Не удалось получить данные"))
+                else:
+                    self.status_message.emit(
+                        self.tr("Драйвер «{}» не инициализирован").format(get_driver_name(driver_code, AppLang.code))
+                    )
+
+            return None
+
+        self._start_thread(callback, check)
+
+    def save_checkpoint(self, file_path: str, driver_code: DriverCode) -> None:
+        def _save(checkpoint: CheckPoint) -> None:
+            if checkpoint:
+                self.update_progress.emit(-1, -1, driver_code)
+                try:
+                    checkpoint.save(file_path)
+
+                    self.status_message.emit(self.tr("Контрольная точка сохранена"))
+                except Exception as exception:
+                    _logger.exception(exception)
+                    QMessageBox.critical(
+                        self.parent(),
+                        self.tr("Сохранение файла"),
+                        self.tr("Не удалось сохранить файл")
+                    )
+
+                self.update_progress.emit(1, 1, driver_code)
+            else:
+                self.status_message.emit(
+                    self.tr("Для выполнения действия запустите драйвер «{}»").format(
+                        get_driver_name(driver_code, AppLang.code)
+                    )
+                )
+
+        self.get_object(
+            _save,
+            driver_code,
+            SportEventDriver.__name__,
+            self.get_name(SportEventDriver, SportEventDriver.checkpoint)
+        )
+
+    def remove_signal(self, signal_id: str, driver_code: DriverCode) -> None:
+        self._start_thread(None, self._remove_signal, signal_id, driver_code)
+
+    def fing_signal_ids(self, callback: Callable) -> None:
+        """
+        Получить идентификаторы всех сигналов.
+
+        :return: Список идентификаторов.
+        """
+        def get_signals() -> list[str]:
+            signals_id = []
+            for worker in self.workers.values():
+                response = self._get_response(
+                    worker,
+                    CheckPoint.__name__,
+                    "signals"
+                )
+                if response and response.result:
+                    for signal_id in response.result:
+                        signals_id.append(signal_id)
+
+            return signals_id
+
+        self._start_thread(callback, get_signals)
+
+    @Slot()
+    def run(self, driver_code: DriverCode, is_checkpoint: bool) -> None:
+        config = self.multi_driver_config.config.get(driver_code)
+        if not config:
+            _logger.warning(f"Driver (code={driver_code}) config not found")
+            self.status_message.emit(
+                self.tr("Не найдена конфигурация драйвера «{}»").format(
+                    get_driver_name(driver_code, AppLang.code)
+                )
+            )
+            return None
+
+        worker = WorkerDriverProcess(driver_code, self.db_context.config, config)
+
+        self.workers[driver_code] = worker
+
+        worker.start()
+
+        self.status_message.emit(
+            self.tr("Драйвер «{}» инициализирован").format(get_driver_name(driver_code, AppLang.code))
+        )
+
+        self._run((True, driver_code, is_checkpoint))
+
+    @Slot()
+    def stop(self, driver_code: DriverCode, is_checkpoint: bool) -> None:
+        def check() -> tuple[bool, DriverCode, bool]:
+            return self._check_driver(driver_code, False), driver_code, is_checkpoint
+
+        worker = self.workers.get(driver_code)
+        if worker:
+            self._start_thread(self._stop, check)
+        else:
+            _logger.warning(f"Driver (code={driver_code}) not found")
+            self.status_message.emit(
+                self.tr("Драйвер «{}» не инициализирован").format(get_driver_name(driver_code, AppLang.code))
+            )
+
+    @Slot()
+    def update_data(self, driver_code: DriverCode, is_script: bool) -> None:
+        self._start_thread(None, self._update_data, driver_code, is_script)
+
+    @Slot()
+    def download_leagues(self, driver_code: DriverCode) -> None:
+        def check() -> tuple[bool, DriverCode]:
+            return self._check_driver(driver_code), driver_code
+
+        self._start_thread(self._download_leagues, check)
+
+    @Slot()
+    def edit_driver_config(self, driver_code: DriverCode) -> None:
+        def check() -> tuple[bool, DriverCode]:
+            return self._check_driver(driver_code), driver_code
+
+        self._start_thread(self._edit_driver_config, check)
+
+    @Slot()
+    def edit_dao_config(self):
+        def check() -> bool:
+            for driver_code in self.workers:
+                flag = self._check_driver(driver_code)
+                if not flag:
+                    return False
+
+            return True
+
+        self._start_thread(self._edit_dao_config, check)
 
     @Slot()
     def show_transfer_dao(self) -> None:

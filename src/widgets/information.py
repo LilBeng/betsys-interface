@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 from betsys import DriverCode, CheckPoint, MatchDetails, format_match_details
 from betsys.driver.base import Information, SportEventDriver
 
+from src.dialogs.match import MatchDetailsDialog
 from src.utils.lang import AppLang
 from src.utils.service import SportEventService
 from src.utils.tree import tree_str
@@ -73,9 +74,16 @@ class InformationWidget(QFrame):
             parent=self
         )
 
+        self._show_match = QAction(
+            icon=QIcon(":/resources/icons/info.png"),
+            text=self.tr("Открыть матч"),
+            parent=self
+        )
+
         bar = QToolBar(self)
 
-        self._table = MatchTableWidget(self)
+        self._table = MatchTableWidget(parent=self)
+        self._table.cellDoubleClicked.connect(self.show_match)
         self._table.horizontalHeader().setMinimumSectionSize(150)
         self._table.update_progress.connect(self.update_progress)
         self._table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -105,10 +113,12 @@ class InformationWidget(QFrame):
         bar.addAction(self._update_info)
         bar.addAction(self._save_checkpoint)
         bar.addAction(self._print_info)
+        bar.addAction(self._show_match)
 
         self._print_info.triggered.connect(self.print_info)
         self._update_info.triggered.connect(self.update_info)
         self._save_checkpoint.triggered.connect(self.save_checkpoint)
+        self._show_match.triggered.connect(self.show_match)
 
         main_layout = QVBoxLayout(self)
         main_layout.addWidget(scroll_area)
@@ -137,10 +147,10 @@ class InformationWidget(QFrame):
             self._update.emit()
 
         self._service.get_object(
+            _update_info,
             self.driver_code,
             SportEventDriver.__name__,
             SportEventService.get_name(SportEventDriver, SportEventDriver.information),
-            _update_info
         )
 
     @Slot()
@@ -150,10 +160,10 @@ class InformationWidget(QFrame):
                 self._table.set_items(match_details.values()) # noqa
 
         self._service.get_object(
+            _update_table,
             self.driver_code,
             CheckPoint.__name__,
             "match_details",
-            _update_table
         )
 
     @Slot()
@@ -169,10 +179,10 @@ class InformationWidget(QFrame):
             self.show_message.emit(self.tr("Операция выполнена"))
 
         self._service.get_object(
+            _print_info,
             self.driver_code,
             CheckPoint.__name__,
             "consumed_match_ids",
-            _print_info
         )
 
     @Slot()
@@ -185,11 +195,7 @@ class InformationWidget(QFrame):
         context_menu = QMenu(self)
 
         if self._table.get_selected_models():
-            action = context_menu.addAction(
-                QIcon(":/resources/icons/console.png"),
-                self.tr("Вывести в консоль")
-            )
-            action.triggered.connect(self._print_match_info)
+            context_menu.addAction(self._show_match)
 
         context_menu.exec(self._table.mapToGlobal(position))
 
@@ -217,3 +223,11 @@ class InformationWidget(QFrame):
         )
         if file_path:
             self._service.save_checkpoint(file_path, self._driver_code)
+
+    @Slot()
+    def show_match(self) -> None:
+        if matches := self._table.get_selected_models():
+            dialog = MatchDetailsDialog(self._driver_code, matches, parent=self)
+            dialog.exec()
+        else:
+            self.show_message.emit(self.tr("Матчи не выбраны"))
