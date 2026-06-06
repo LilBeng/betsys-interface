@@ -195,6 +195,12 @@ class InformationWidget(QFrame):
         context_menu = QMenu(self)
 
         if self._table.get_selected_models():
+            action = context_menu.addAction(
+                QIcon(":/resources/icons/console.png"),
+                self.tr("Вывести в консоль")
+            )
+            action.triggered.connect(self._print_match_info)
+
             context_menu.addAction(self._show_match)
 
         context_menu.exec(self._table.mapToGlobal(position))

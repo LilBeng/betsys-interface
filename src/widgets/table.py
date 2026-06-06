@@ -2,7 +2,6 @@ import logging
 from typing import Optional, Any
 
 from PySide6.QtCore import Signal, Qt
-from PySide6.QtGui import QStandardItem
 from PySide6.QtWidgets import QTableWidget, QHeaderView, QAbstractItemView, QTableWidgetItem
 from betsys import (
     ScriptDBModel,
@@ -14,11 +13,11 @@ from betsys import (
     get_match_status_name,
     get_table_headers,
     Row, get_h2h_headers,
-    MatchReport, get_players_name, PlayerCode, Player
+    MatchReport, Player
 )
 
-from src.utils.lang import AppLang
 from src.utils.delegate import ResultDelegate
+from src.utils.lang import AppLang
 
 _logger = logging.getLogger(__name__)
 

@@ -314,7 +314,7 @@ class DriverToolBar(QToolBar):
 
             self.print_signals = self._signal_menu.addAction(
                 QIcon(":/resources/icons/console.png"),
-                self.tr("Вывести в консоль")
+                self.tr("Вывести сигналы в консоль")
             )
             self._signal_button.setMenu(self._signal_menu)
             self._signal_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)

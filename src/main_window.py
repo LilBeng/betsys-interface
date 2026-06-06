@@ -95,8 +95,12 @@ class MainWindow(QMainWindow):
 
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.log_dock)
 
+        self._service = SportEventService(db_context, multi_driver_config, parent=self)
+        self._service.status_message.connect(self.show_message)
+        self._service.update_progress.connect(self.sync_update_progress)
+
         if not only_database:
-            self.console_widget = ConsoleWidget(self)
+            self.console_widget = ConsoleWidget(self._service, parent=self)
             self.console_widget.show_message.connect(self.show_message)
 
             self.console_dock = QDockWidget(self.tr("Консоль"), self)
@@ -233,10 +237,6 @@ class MainWindow(QMainWindow):
                     self.driver_tool_bar.print_signals
                 ]
             )
-
-        self._service = SportEventService(db_context, multi_driver_config, parent=self)
-        self._service.status_message.connect(self.show_message)
-        self._service.update_progress.connect(self.sync_update_progress)
 
         SportEventDriver.update_progress.connect(self.async_update_progress)
 
