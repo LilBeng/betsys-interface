@@ -13,7 +13,7 @@ from betsys import (
     get_match_status_name,
     get_table_headers,
     Row, get_h2h_headers,
-    MatchReport, Player
+    MatchReport, Player, get_team_headers
 )
 
 from src.utils.delegate import ResultDelegate
@@ -429,9 +429,7 @@ class H2HWidget(BaseTableWidget):
 class TeamWidget(BaseTableWidget):
 
     def __init__(self, *args, **kwargs) -> None:
-        super().__init__(get_h2h_headers(AppLang.code), *args, **kwargs)
-
-        self.setItemDelegateForColumn(len(self._labels) - 1, ResultDelegate(self))
+        super().__init__(get_team_headers(AppLang.code), *args, **kwargs)
 
     def add_item(self, player: Player) -> None:
         self.setSortingEnabled(False)

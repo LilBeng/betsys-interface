@@ -10,7 +10,9 @@ from betsys import (
     TeamCode,
     get_team_name,
     EncounterCode,
-    get_encounter_name, PlayerCode, get_players_name
+    get_encounter_name,
+    PlayerCode,
+    get_players_name
 )
 
 from src.utils.blocker import WheelBlocker
@@ -29,6 +31,7 @@ class MatchDetailsWidget(QWidget):
         status = QLabel(get_match_status_name(match_details.match.match_summary.match_status_code, AppLang.code))
 
         layout = QFormLayout(self)
+        layout.setSpacing(10)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         layout.addRow(self.tr("Страна:"), QLabel(match_details.match.league.country_name))
         layout.addRow(self.tr("Лига:"), QLabel(match_details.match.league.league_name))
@@ -110,6 +113,8 @@ class MatchDetailsWidget(QWidget):
 
         if match_details.match.home_team.players or match_details.match.away_team.players:
             self._teams = TeamWidget(parent=self)
+            self._teams.horizontalHeader().setMinimumSectionSize(150)
+            self._teams.setMinimumHeight(250)
 
             self._players_box = QComboBox(self)
             self._players_box.installEventFilter(self.wheel_blocker)
