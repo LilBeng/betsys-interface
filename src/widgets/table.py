@@ -2,6 +2,7 @@ import logging
 from typing import Optional, Any
 
 from PySide6.QtCore import Signal, Qt
+from PySide6.QtGui import QStandardItem
 from PySide6.QtWidgets import QTableWidget, QHeaderView, QAbstractItemView, QTableWidgetItem
 from betsys import (
     ScriptDBModel,
@@ -13,7 +14,7 @@ from betsys import (
     get_match_status_name,
     get_table_headers,
     Row, get_h2h_headers,
-    MatchReport
+    MatchReport, get_players_name, PlayerCode, Player
 )
 
 from src.utils.lang import AppLang
@@ -418,6 +419,34 @@ class H2HWidget(BaseTableWidget):
             else:
                 item = QTableWidgetItem()
 
+            item.setData(Qt.ItemDataRole.DisplayRole, value)
+            item.setData(Qt.ItemDataRole.UserRole, value)
+
+            self.setItem(self.rowCount() - 1, index, item)
+
+        self.setSortingEnabled(True)
+
+
+class TeamWidget(BaseTableWidget):
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(get_h2h_headers(AppLang.code), *args, **kwargs)
+
+        self.setItemDelegateForColumn(len(self._labels) - 1, ResultDelegate(self))
+
+    def add_item(self, player: Player) -> None:
+        self.setSortingEnabled(False)
+
+        self.insertRow(self.rowCount())
+
+        for index, value in enumerate(
+                [
+                    player.name,
+                    player.rating
+                ]
+        ):
+            item = QTableWidgetItem(value)
+            item.setToolTip(str(value))
             item.setData(Qt.ItemDataRole.DisplayRole, value)
             item.setData(Qt.ItemDataRole.UserRole, value)
 

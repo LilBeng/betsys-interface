@@ -10,17 +10,20 @@ from betsys import (
     TeamCode,
     get_team_name,
     EncounterCode,
-    get_encounter_name
+    get_encounter_name, PlayerCode, get_players_name
 )
 
+from src.utils.blocker import WheelBlocker
 from src.utils.lang import AppLang
-from src.widgets.table import TableWidget, H2HWidget
+from src.widgets.table import TableWidget, H2HWidget, TeamWidget
 
 
 class MatchDetailsWidget(QWidget):
     def __init__(self, match_details: MatchDetails, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._match_details = match_details
+
+        self.wheel_blocker = WheelBlocker()
 
         teams = QLabel(f"{match_details.match.home_team.name} - {match_details.match.away_team.name}", parent=self)
         status = QLabel(get_match_status_name(match_details.match.match_summary.match_status_code, AppLang.code))
@@ -54,8 +57,10 @@ class MatchDetailsWidget(QWidget):
         if match_details.match.league.tables:
             self._table = TableWidget(parent=self)
             self._table.horizontalHeader().setMinimumSectionSize(150)
+            self._table.setMinimumHeight(250)
 
             self._table_box = QComboBox(self)
+            self._table_box.installEventFilter(self.wheel_blocker)
             self._table_box.currentIndexChanged.connect(self._changed_table)
 
             for game_code in GameCode:
@@ -70,14 +75,18 @@ class MatchDetailsWidget(QWidget):
         if match_details.h2h:
             self._h2h = H2HWidget(parent=self)
             self._h2h.horizontalHeader().setMinimumSectionSize(150)
+            self._h2h.setMinimumHeight(250)
 
             self._team_box = QComboBox(self)
+            self._team_box.installEventFilter(self.wheel_blocker)
             self._team_box.currentIndexChanged.connect(self._changed_h2h)
 
             self._game_box = QComboBox(self)
+            self._game_box.installEventFilter(self.wheel_blocker)
             self._game_box.currentIndexChanged.connect(self._changed_h2h)
 
             self._encounter_box = QComboBox(self)
+            self._encounter_box.installEventFilter(self.wheel_blocker)
             self._encounter_box.currentIndexChanged.connect(self._changed_h2h)
 
             for team_code in TeamCode:
@@ -90,7 +99,7 @@ class MatchDetailsWidget(QWidget):
                 self._encounter_box.addItem(get_encounter_name(encounter_code, AppLang.code), encounter_code)
 
             layout.addItem(QSpacerItem(40, 20, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum))
-            layout.addRow(self.tr("Таблица:"), self._game_box)
+            layout.addRow(self.tr("Игра:"), self._game_box)
             layout.addRow(self.tr("Команда:"), self._team_box)
             layout.addRow(self.tr("Тип:"), self._encounter_box)
             layout.addRow(self._h2h)
@@ -98,6 +107,31 @@ class MatchDetailsWidget(QWidget):
             self._team_box.setCurrentText(get_team_name(TeamCode.HOME, AppLang.code))
             self._game_box.setCurrentText(get_game_name(GameCode.TOTAL, AppLang.code))
             self._encounter_box.setCurrentText(get_encounter_name(EncounterCode.REGULAR_GAME, AppLang.code))
+
+        if match_details.match.home_team.players or match_details.match.away_team.players:
+            self._teams = TeamWidget(parent=self)
+
+            self._players_box = QComboBox(self)
+            self._players_box.installEventFilter(self.wheel_blocker)
+            self._players_box.currentIndexChanged.connect(self._changed_players)
+
+            self._players_type_box = QComboBox(self)
+            self._players_type_box.installEventFilter(self.wheel_blocker)
+            self._players_type_box.currentIndexChanged.connect(self._changed_players)
+
+            for team_code in TeamCode:
+                self._players_box.addItem(get_team_name(team_code, AppLang.code), team_code)
+
+            for player_code in PlayerCode:
+                self._players_type_box.addItem(get_players_name(player_code, AppLang.code), player_code)
+
+            layout.addItem(QSpacerItem(40, 20, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum))
+            layout.addRow(self.tr("Команда:"), self._players_box)
+            layout.addRow(self.tr("Тип:"), self._players_type_box)
+            layout.addRow(self._teams)
+
+            self._players_box.setCurrentText(get_team_name(TeamCode.HOME, AppLang.code))
+            self._players_type_box.setCurrentText(get_players_name(PlayerCode.PLAYERS, AppLang.code))
 
     @Slot()
     def _changed_table(self, index: int) -> None:
@@ -117,3 +151,20 @@ class MatchDetailsWidget(QWidget):
             self._h2h.set_items(reports)
         else:
             self._h2h.clear()
+
+    @Slot()
+    def _changed_players(self, /) -> None:
+        if self._players_box.currentData() == TeamCode.HOME:
+            team = self._match_details.match.home_team
+        else:
+            team = self._match_details.match.away_team
+
+        if self._players_type_box.currentData() == PlayerCode.PLAYERS:
+            players = team.players
+        else:
+            players = team.substitutes
+
+        if players:
+            self._teams.set_items(players)
+        else:
+            self._teams.clear()

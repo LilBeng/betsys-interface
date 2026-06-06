@@ -2,8 +2,18 @@ from typing import Optional, Callable
 
 from PySide6.QtCore import QThread, QSize
 from PySide6.QtGui import QIcon, QAction, Qt, QScreen
-from PySide6.QtWidgets import QPlainTextEdit, QLabel, QWidget, QSizePolicy, QComboBox, QFormLayout, QHBoxLayout, \
-    QStackedLayout, QApplication
+from PySide6.QtWidgets import (
+    QPlainTextEdit,
+    QLabel,
+    QWidget,
+    QSizePolicy,
+    QComboBox,
+    QFormLayout,
+    QHBoxLayout,
+    QStackedLayout,
+    QApplication,
+    QScrollArea
+)
 from betsys import DBContext, MatchCode, MatchDetails, DriverCode, get_driver_name
 from qasync import asyncSlot
 
@@ -197,13 +207,20 @@ class MatchDetailsDialog(BaseDialog):
         self._box.currentIndexChanged.connect(self._changed)
 
         self._stacked_layout = QStackedLayout()
-        for match in matches:
-            widget = MatchDetailsWidget(match, parent=self)
-            self._stacked_layout.addWidget(widget)
 
         layout = QFormLayout(self)
         layout.addRow(self.tr("Идентификатор матча:"), self._box)
         layout.addRow(self._stacked_layout)
+
+        for match in matches:
+            widget = MatchDetailsWidget(match, parent=self)
+
+            scroll_area = QScrollArea()
+            scroll_area.setWidgetResizable(True)
+            scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
+            scroll_area.setWidget(widget)
+
+            self._stacked_layout.addWidget(scroll_area)
 
     def _changed(self, index: int) -> None:
         self._stacked_layout.setCurrentIndex(index)
