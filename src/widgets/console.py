@@ -43,7 +43,6 @@ class ConsolePlainText(QPlainTextEdit):
     def keyPressEvent(self, event: QKeyEvent):
         if event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
             if not self.command_mode:
-                # Вход в режим ввода команды
                 self.setReadOnly(False)
                 self.command_mode = True
                 cursor = self.textCursor()
@@ -56,31 +55,34 @@ class ConsolePlainText(QPlainTextEdit):
                 self.command_start_pos = self.textCursor().position()
                 self.ensureCursorVisible()
             else:
-                # Выполнение команды
                 command = self.get_command_text()
                 if command:
                     self.setReadOnly(True)
                     self.command_mode = False
                     self.execute_command.emit(command)
-            return
+
+            return None
 
         if self.command_mode:
             cursor = self.textCursor()
 
-            # Запрещаем перемещать курсор выше command_start_pos
-            if event.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down, Qt.Key.Key_Left,
-                               Qt.Key.Key_PageUp, Qt.Key.Key_PageDown, Qt.Key.Key_Home):
-                return
+            if event.key() in (
+                    Qt.Key.Key_Up,
+                    Qt.Key.Key_Down,
+                    Qt.Key.Key_Left,
+                    Qt.Key.Key_PageUp,
+                    Qt.Key.Key_PageDown,
+                    Qt.Key.Key_Home
+            ):
+                return None
 
-            # Запрещаем Backspace/Delete на границе
             if event.key() == Qt.Key.Key_Backspace:
                 if cursor.position() <= self.command_start_pos:
-                    return
+                    return None
             if event.key() == Qt.Key.Key_Delete:
                 if cursor.position() < self.command_start_pos:
-                    return
+                    return None
 
-            # Блокируем выделение и удаление выше command_start_pos
             if cursor.position() < self.command_start_pos:
                 cursor.setPosition(self.command_start_pos)
                 self.setTextCursor(cursor)
