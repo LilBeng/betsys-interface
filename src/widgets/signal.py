@@ -24,7 +24,8 @@ from betsys import (
     format_signal,
     get_risk_name,
     get_signal_type_name,
-    get_driver_name, CheckPoint, SignalTypeCode
+    get_driver_name,
+    CheckPoint
 )
 
 from src.dialogs.chat import ChatDialog
@@ -258,16 +259,6 @@ class SignalWidget(QFrame):
         )
 
         self._score_label = QLabel()
-        if (
-                signal.signal_property.signal_type_code == SignalTypeCode.LIVE and
-                match_details.match.match_summary.match_status_code == MatchStatusCode.IN_PROGRESS
-        ):
-            self._score_label.setText(
-                self.tr("Счет {}:{}").format(
-                    match_details.match.match_summary.home_team_score,
-                    match_details.match.match_summary.away_team_score
-                )
-            )
 
         self._top_widget.central_layout.addWidget(self._score_label, alignment=Qt.AlignmentFlag.AlignRight)
 

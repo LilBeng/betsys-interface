@@ -56,7 +56,6 @@ class ChatDialog(QDialog):
         super().__init__(*args, **kwargs)
         self.messages = messages
 
-        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setWindowTitle(self.tr("Чат"))
         self.setWindowIcon(QIcon(":/resources/icons/dialog.png"))
 
