@@ -1,5 +1,5 @@
-from PySide6.QtCore import Slot, Qt
-from PySide6.QtWidgets import QWidget, QFormLayout, QLabel, QComboBox, QSpacerItem, QSizePolicy
+from PySide6.QtCore import Slot
+from PySide6.QtWidgets import QWidget, QFormLayout, QLabel, QComboBox, QGroupBox
 from betsys import (
     MatchDetails,
     get_match_status_name,
@@ -12,12 +12,17 @@ from betsys import (
     EncounterCode,
     get_encounter_name,
     PlayerCode,
-    get_players_name
+    get_players_name,
+    MatchCode,
+    FEventStatusCode,
+    get_event_name,
+    HEventStatusCode,
+    VEventStatusCode
 )
 
 from src.utils.blocker import WheelBlocker
 from src.utils.lang import AppLang
-from src.widgets.table import TableWidget, H2HWidget, TeamWidget
+from src.widgets.table import TableWidget, H2HWidget, TeamWidget, StatisticWidget
 
 
 class MatchDetailsWidget(QWidget):
@@ -30,17 +35,20 @@ class MatchDetailsWidget(QWidget):
         teams = QLabel(f"{match_details.match.home_team.name} - {match_details.match.away_team.name}", parent=self)
         status = QLabel(get_match_status_name(match_details.match.match_summary.match_status_code, AppLang.code))
 
-        layout = QFormLayout(self)
-        layout.setSpacing(10)
-        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        layout.addRow(self.tr("Страна:"), QLabel(match_details.match.league.country_name))
-        layout.addRow(self.tr("Лига:"), QLabel(match_details.match.league.league_name))
-        layout.addRow(self.tr("Матч:"), teams)
-        layout.addRow(self.tr("Статус:"), status)
+        layout = QFormLayout(self, horizontalSpacing=40, verticalSpacing=20)
+
+        data = QGroupBox(self.tr("Общие данные"), self)
+        layout.addRow(data)
+
+        data_layout = QFormLayout(data, horizontalSpacing=10, verticalSpacing=10)
+        data_layout.addRow(self.tr("Страна:"), QLabel(match_details.match.league.country_name))
+        data_layout.addRow(self.tr("Лига:"), QLabel(match_details.match.league.league_name))
+        data_layout.addRow(self.tr("Матч:"), teams)
+        data_layout.addRow(self.tr("Статус:"), status)
 
         if match_details.match.match_summary.match_status_code == MatchStatusCode.IN_PROGRESS:
             event = QLabel(get_global_event_name(match_details.match.match_summary.event_status_code, AppLang.code))
-            layout.addRow(self.tr("Событие:"), event)
+            data_layout.addRow(self.tr("Событие:"), event)
 
         if match_details.match.match_summary.match_status_code != MatchStatusCode.NOT_STARTED:
             if match_details.match.match_summary.home_team_score is not None:
@@ -55,7 +63,43 @@ class MatchDetailsWidget(QWidget):
                         f"{match_details.match.match_summary.home_team_score} - "
                         f"{match_details.match.match_summary.away_team_score}"
                     )
-                layout.addRow(self.tr("Счет:"), score)
+                data_layout.addRow(self.tr("Счет:"), score)
+
+        if match_details.match.statistic.total:
+            self._statistics = StatisticWidget(parent=self)
+            self._statistics.horizontalHeader().setMinimumSectionSize(150)
+            self._statistics.setMinimumHeight(250)
+
+            self._statistic_box = QComboBox(self)
+            self._statistic_box.installEventFilter(self.wheel_blocker)
+            self._statistic_box.currentIndexChanged.connect(self._changed_statistics)
+
+            if match_details.match.match_code == MatchCode.FOOTBALL:
+                for code in FEventStatusCode:
+                    if match_details.match.statistic.get_statistics(code):
+                        self._statistic_box.addItem(get_event_name(code, AppLang.code), code)
+
+                self._statistic_box.setCurrentText(get_event_name(FEventStatusCode.FULL_TIME, AppLang.code))
+
+            elif match_details.match.match_code == MatchCode.HOCKEY:
+                for code in HEventStatusCode:
+                    if match_details.match.statistic.get_statistics(code):
+                        self._statistic_box.addItem(get_event_name(code, AppLang.code), code)
+
+                self._statistic_box.setCurrentText(get_event_name(HEventStatusCode.FULL_TIME, AppLang.code))
+            else:
+                for code in VEventStatusCode:
+                    if match_details.match.statistic.get_statistics(code):
+                        self._statistic_box.addItem(get_event_name(code, AppLang.code), code)
+
+                self._statistic_box.setCurrentText(get_event_name(VEventStatusCode.FULL_TIME, AppLang.code))
+
+            statistic = QGroupBox(self.tr("Статистика"), self)
+            layout.addRow(statistic)
+
+            statistic_layout = QFormLayout(statistic, horizontalSpacing=10, verticalSpacing=10)
+            statistic_layout.addRow(self.tr("Событие:"), self._statistic_box)
+            statistic_layout.addRow(self._statistics)
 
         if match_details.match.league.tables:
             self._table = TableWidget(parent=self)
@@ -69,9 +113,12 @@ class MatchDetailsWidget(QWidget):
             for game_code in GameCode:
                 self._table_box.addItem(get_game_name(game_code, AppLang.code), game_code)
 
-            layout.addItem(QSpacerItem(40, 20, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum))
-            layout.addRow(self.tr("Таблица:"), self._table_box)
-            layout.addRow(self._table)
+            table = QGroupBox(self.tr("Турнирная таблица"), self)
+            layout.addRow(table)
+
+            table_layout = QFormLayout(table, horizontalSpacing=10, verticalSpacing=10)
+            table_layout.addRow(self.tr("Таблица:"), self._table_box)
+            table_layout.addRow(self._table)
 
             self._table_box.setCurrentText(get_game_name(GameCode.TOTAL, AppLang.code))
 
@@ -101,11 +148,14 @@ class MatchDetailsWidget(QWidget):
             for encounter_code in EncounterCode:
                 self._encounter_box.addItem(get_encounter_name(encounter_code, AppLang.code), encounter_code)
 
-            layout.addItem(QSpacerItem(40, 20, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum))
-            layout.addRow(self.tr("Игра:"), self._game_box)
-            layout.addRow(self.tr("Команда:"), self._team_box)
-            layout.addRow(self.tr("Тип:"), self._encounter_box)
-            layout.addRow(self._h2h)
+            h2h = QGroupBox(self.tr("H2H"), self)
+            layout.addRow(h2h)
+
+            h2h_layout = QFormLayout(h2h, horizontalSpacing=10, verticalSpacing=10)
+            h2h_layout.addRow(self.tr("Игра:"), self._game_box)
+            h2h_layout.addRow(self.tr("Команда:"), self._team_box)
+            h2h_layout.addRow(self.tr("Тип:"), self._encounter_box)
+            h2h_layout.addRow(self._h2h)
 
             self._team_box.setCurrentText(get_team_name(TeamCode.HOME, AppLang.code))
             self._game_box.setCurrentText(get_game_name(GameCode.TOTAL, AppLang.code))
@@ -130,10 +180,13 @@ class MatchDetailsWidget(QWidget):
             for player_code in PlayerCode:
                 self._players_type_box.addItem(get_players_name(player_code, AppLang.code), player_code)
 
-            layout.addItem(QSpacerItem(40, 20, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum))
-            layout.addRow(self.tr("Команда:"), self._players_box)
-            layout.addRow(self.tr("Тип:"), self._players_type_box)
-            layout.addRow(self._teams)
+            players = QGroupBox(self.tr("Составы"), self)
+            layout.addRow(players)
+
+            players_layout = QFormLayout(players, horizontalSpacing=10, verticalSpacing=10)
+            players_layout.addRow(self.tr("Команда:"), self._players_box)
+            players_layout.addRow(self.tr("Тип:"), self._players_type_box)
+            players_layout.addRow(self._teams)
 
             self._players_box.setCurrentText(get_team_name(TeamCode.HOME, AppLang.code))
             self._players_type_box.setCurrentText(get_players_name(PlayerCode.PLAYERS, AppLang.code))
@@ -145,6 +198,14 @@ class MatchDetailsWidget(QWidget):
             self._table.set_items(table.rows)
         else:
             self._table.clear()
+
+    @Slot()
+    def _changed_statistics(self, index: int) -> None:
+        status_code = self._statistic_box.itemData(index)
+        if statistics := self._match_details.match.statistic.get_statistics(status_code):
+            self._statistics.set_items(statistics)
+        else:
+            self._statistics.clear()
 
     @Slot()
     def _changed_h2h(self, /) -> None:

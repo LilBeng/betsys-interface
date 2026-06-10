@@ -13,7 +13,7 @@ from betsys import (
     get_match_status_name,
     get_table_headers,
     Row, get_h2h_headers,
-    MatchReport, Player, get_team_headers
+    MatchReport, Player, get_team_headers, get_statistic_headers, Statistic, get_statistic_name
 )
 
 from src.utils.delegate import ResultDelegate
@@ -440,6 +440,33 @@ class TeamWidget(BaseTableWidget):
                 [
                     player.name,
                     player.rating
+                ]
+        ):
+            item = QTableWidgetItem(value)
+            item.setToolTip(str(value))
+            item.setData(Qt.ItemDataRole.DisplayRole, value)
+            item.setData(Qt.ItemDataRole.UserRole, value)
+
+            self.setItem(self.rowCount() - 1, index, item)
+
+        self.setSortingEnabled(True)
+
+
+class StatisticWidget(BaseTableWidget):
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(get_statistic_headers(AppLang.code), *args, **kwargs)
+
+    def add_item(self, statistic: Statistic) -> None:
+        self.setSortingEnabled(False)
+
+        self.insertRow(self.rowCount())
+
+        for index, value in enumerate(
+                [
+                    get_statistic_name(statistic.statistic_code, AppLang.code),
+                    statistic.home_team_value,
+                    statistic.away_team_value
                 ]
         ):
             item = QTableWidgetItem(value)
