@@ -104,7 +104,6 @@ class MatchDetailsWidget(QWidget):
         if match_details.match.league.tables:
             self._table = TableWidget(parent=self)
             self._table.horizontalHeader().setMinimumSectionSize(150)
-            self._table.setMinimumHeight(250)
 
             self._table_box = QComboBox(self)
             self._table_box.installEventFilter(self.wheel_blocker)

@@ -357,8 +357,15 @@ class MainWindow(QMainWindow):
             self.driver_tool_bar.remove_finished_signals.triggered.connect(self._signal_border.remove_finished_signals)
             self.driver_tool_bar.print_signals.triggered.connect(self._signal_border.print_signals)
 
-            self._tab_widget.addTab(self._signal_border, QIcon(":/resources/icons/signal.png"), self.tr("Сигналы"))
-            self._tab_widget.tabBar().tabButton(0, QTabBar.ButtonPosition.RightSide).setVisible(False)
+            index = self._tab_widget.addTab(
+                self._signal_border,
+                QIcon(":/resources/icons/signal.png"),
+                self.tr("Сигналы")
+            )
+            self._tab_widget.tabBar().tabButton(index, QTabBar.ButtonPosition.RightSide).setVisible(False)
+            self._tab_widget.setTabVisible(index, False)
+
+            self._signal_border.update_tab_widget.connect(partial(self._update_tab_widget, index))
 
             self.setCentralWidget(self._tab_widget)
 
@@ -440,6 +447,12 @@ class MainWindow(QMainWindow):
         else:
             event.ignore()
 
+    @Slot()
+    def _update_tab_widget(self, index, visible: bool) -> None:
+        self._tab_widget.tabBar().tabButton(index, QTabBar.ButtonPosition.RightSide).setVisible(False)
+        self._tab_widget.setTabVisible(index, visible)
+
+    @Slot()
     async def async_update_progress(
             self,
             sender: str,

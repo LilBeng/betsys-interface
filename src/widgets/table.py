@@ -2,6 +2,7 @@ import logging
 from typing import Optional, Any
 
 from PySide6.QtCore import Signal, Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QTableWidget, QHeaderView, QAbstractItemView, QTableWidgetItem
 from betsys import (
     ScriptDBModel,
@@ -13,7 +14,12 @@ from betsys import (
     get_match_status_name,
     get_table_headers,
     Row, get_h2h_headers,
-    MatchReport, Player, get_team_headers, get_statistic_headers, Statistic, get_statistic_name
+    MatchReport,
+    Player,
+    get_team_headers,
+    get_statistic_headers,
+    Statistic,
+    get_statistic_name
 )
 
 from src.utils.delegate import ResultDelegate
@@ -388,6 +394,13 @@ class TableWidget(BaseTableWidget):
 
         self.setSortingEnabled(True)
 
+        header_height = self.horizontalHeader().height()
+        rows_height = sum(self.rowHeight(index) for index in range(self.rowCount()))
+        total_height = header_height + rows_height + 10
+
+        self.setMinimumHeight(total_height)
+        self.setMaximumHeight(total_height)
+
 
 class H2HWidget(BaseTableWidget):
 
@@ -425,6 +438,13 @@ class H2HWidget(BaseTableWidget):
 
         self.setSortingEnabled(True)
 
+        header_height = self.horizontalHeader().height()
+        rows_height = sum(self.rowHeight(index) for index in range(self.rowCount()))
+        total_height = header_height + rows_height + 10
+
+        self.setMinimumHeight(total_height)
+        self.setMaximumHeight(total_height)
+
 
 class TeamWidget(BaseTableWidget):
 
@@ -451,6 +471,13 @@ class TeamWidget(BaseTableWidget):
 
         self.setSortingEnabled(True)
 
+        header_height = self.horizontalHeader().height()
+        rows_height = sum(self.rowHeight(index) for index in range(self.rowCount()))
+        total_height = header_height + rows_height + 10
+
+        self.setMinimumHeight(total_height)
+        self.setMaximumHeight(total_height)
+
 
 class StatisticWidget(BaseTableWidget):
 
@@ -476,4 +503,30 @@ class StatisticWidget(BaseTableWidget):
 
             self.setItem(self.rowCount() - 1, index, item)
 
+            if index in (1, 2):
+                if index == 1:
+                    if statistic.home_team_value < statistic.away_team_value:
+                        item.setBackground(QColor(244, 67, 54))
+                    elif statistic.home_team_value > statistic.away_team_value:
+                        item.setBackground(QColor(76, 175, 80))
+                    else:
+                        item.setBackground(QColor(158, 158, 158))
+
+                elif index == 2:
+                    if statistic.away_team_value < statistic.home_team_value:
+                        item.setBackground(QColor(244, 67, 54))
+                    elif statistic.away_team_value > statistic.home_team_value:
+                        item.setBackground(QColor(76, 175, 80))
+                    else:
+                        item.setBackground(QColor(158, 158, 158))
+
+                item.setForeground(Qt.GlobalColor.black)
+
         self.setSortingEnabled(True)
+
+        header_height = self.horizontalHeader().height()
+        rows_height = sum(self.rowHeight(index) for index in range(self.rowCount()))
+        total_height = header_height + rows_height + 10
+
+        self.setMinimumHeight(total_height)
+        self.setMaximumHeight(total_height)

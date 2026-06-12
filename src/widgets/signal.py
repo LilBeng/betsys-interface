@@ -45,6 +45,8 @@ class SignalBorder(QFrame):
     show_message = pysideSignal(str)
     print_text = pysideSignal(str)
 
+    update_tab_widget = pysideSignal(bool)
+
     _show_match_dialog = pysideSignal(DriverCode, MatchDetails)
 
     def __init__(self, service: SportEventService, *args, **kwargs) -> None:
@@ -83,6 +85,8 @@ class SignalBorder(QFrame):
         widget.show_update_match.connect(self._get_match)
         self._signal_layout.addWidget(widget)
 
+        self.update_tab_widget.emit(bool(self._signal_layout.count()))
+
     @Slot()
     def evaluated_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
         """
@@ -111,13 +115,25 @@ class SignalBorder(QFrame):
     def _delete_signal(self, signal_id: str, driver_code: DriverCode) -> None:
         self._service.remove_signal(signal_id, driver_code)
 
-        self._signal_layout.invalidate()
-        self._signal_layout.update()
-        self._signal_layout.activate()
+        for index in range(self._signal_layout.count()):
+            item = self._signal_layout.itemAt(index)
+            widget = item.widget()
+            if isinstance(widget, SignalWidget):
+                if signal_id == widget.signal_id:
+                    self._signal_layout.takeAt(index)
+                    widget.deleteLater()
+
+                    self._signal_layout.invalidate()
+                    self._signal_layout.update()
+                    self._signal_layout.activate()
+
+                    break
 
         self.show_message.emit(
             self.tr("Сигнал драйвера «{}» удален").format(get_driver_name(driver_code, AppLang.code))
         )
+
+        self.update_tab_widget.emit(bool(self._signal_layout.count()))
 
     @Slot()
     def delete_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
@@ -145,6 +161,8 @@ class SignalBorder(QFrame):
                     )
 
                     break
+
+        self.update_tab_widget.emit(bool(self._signal_layout.count()))
 
     @Slot()
     def remove_finished_signals(self) -> None:
@@ -188,6 +206,8 @@ class SignalBorder(QFrame):
                 self._signal_layout.clear()
 
             self.show_message.emit(self.tr(f"Сигналы не найдены"))
+
+        self.update_tab_widget.emit(bool(self._signal_layout.count()))
 
     @Slot()
     def _get_match(self, match_id: str, driver_code: DriverCode) -> None:
@@ -353,7 +373,6 @@ class SignalWidget(QFrame):
     @Slot()
     def _delete(self) -> None:
         self.delete_signal.emit(self.signal_id, self._driver_code)
-        self.deleteLater()
 
     @Slot()
     def _print_data(self) -> None:
