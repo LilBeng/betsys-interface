@@ -4,7 +4,7 @@ from betsys import (
     MatchDetails,
     get_match_status_name,
     MatchStatusCode,
-    get_global_event_name,
+    get_global_event_status_name,
     GameCode,
     get_game_name,
     TeamCode,
@@ -15,7 +15,7 @@ from betsys import (
     get_players_name,
     MatchCode,
     FEventStatusCode,
-    get_event_name,
+    get_event_status_name,
     HEventStatusCode,
     VEventStatusCode
 )
@@ -47,7 +47,9 @@ class MatchDetailsWidget(QWidget):
         data_layout.addRow(self.tr("Статус:"), status)
 
         if match_details.match.match_summary.match_status_code == MatchStatusCode.IN_PROGRESS:
-            event = QLabel(get_global_event_name(match_details.match.match_summary.event_status_code, AppLang.code))
+            event = QLabel(
+                get_global_event_status_name(match_details.match.match_summary.event_status_code, AppLang.code)
+            )
             data_layout.addRow(self.tr("Событие:"), event)
 
         if match_details.match.match_summary.match_status_code != MatchStatusCode.NOT_STARTED:
@@ -77,22 +79,22 @@ class MatchDetailsWidget(QWidget):
             if match_details.match.match_code == MatchCode.FOOTBALL:
                 for code in FEventStatusCode:
                     if match_details.match.statistic.get_statistics(code):
-                        self._statistic_box.addItem(get_event_name(code, AppLang.code), code)
+                        self._statistic_box.addItem(get_event_status_name(code, AppLang.code), code)
 
-                self._statistic_box.setCurrentText(get_event_name(FEventStatusCode.FULL_TIME, AppLang.code))
+                self._statistic_box.setCurrentText(get_event_status_name(FEventStatusCode.FULL_TIME, AppLang.code))
 
             elif match_details.match.match_code == MatchCode.HOCKEY:
                 for code in HEventStatusCode:
                     if match_details.match.statistic.get_statistics(code):
-                        self._statistic_box.addItem(get_event_name(code, AppLang.code), code)
+                        self._statistic_box.addItem(get_event_status_name(code, AppLang.code), code)
 
-                self._statistic_box.setCurrentText(get_event_name(HEventStatusCode.FULL_TIME, AppLang.code))
+                self._statistic_box.setCurrentText(get_event_status_name(HEventStatusCode.FULL_TIME, AppLang.code))
             else:
                 for code in VEventStatusCode:
                     if match_details.match.statistic.get_statistics(code):
-                        self._statistic_box.addItem(get_event_name(code, AppLang.code), code)
+                        self._statistic_box.addItem(get_event_status_name(code, AppLang.code), code)
 
-                self._statistic_box.setCurrentText(get_event_name(VEventStatusCode.FULL_TIME, AppLang.code))
+                self._statistic_box.setCurrentText(get_event_status_name(VEventStatusCode.FULL_TIME, AppLang.code))
 
             statistic = QGroupBox(self.tr("Статистика"), self)
             layout.addRow(statistic)

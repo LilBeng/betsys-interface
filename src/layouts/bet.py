@@ -5,7 +5,7 @@ from PySide6.QtGui import Qt, QIcon
 from PySide6.QtWidgets import QWidget, QFormLayout, QCheckBox, QComboBox, QDoubleSpinBox, QSpinBox
 from betsys import (
     BaseBet,
-    get_event_name,
+    get_event_status_name,
     FEventStatusCode,
     HEventStatusCode,
     VEventStatusCode,
@@ -33,7 +33,7 @@ class BaseBetLayout(QFormLayout):
         for code in FEventStatusCode:
             self._event_status_codes.addItem(
                 QIcon(":/resources/icons/football.png"),
-                get_event_name(code, AppLang.code),
+                get_event_status_name(code, AppLang.code),
                 code
             )
 
@@ -43,7 +43,7 @@ class BaseBetLayout(QFormLayout):
         for code in HEventStatusCode:
             self._event_status_codes.addItem(
                 QIcon(":/resources/icons/hockey.png"),
-                get_event_name(code, AppLang.code),
+                get_event_status_name(code, AppLang.code),
                 code
             )
 
@@ -53,7 +53,7 @@ class BaseBetLayout(QFormLayout):
         for code in VEventStatusCode:
             self._event_status_codes.addItem(
                 QIcon(":/resources/icons/volleyball.png"),
-                get_event_name(code, AppLang.code),
+                get_event_status_name(code, AppLang.code),
                 code
             )
 
@@ -61,7 +61,7 @@ class BaseBetLayout(QFormLayout):
                 break
 
         if bet:
-            self._event_status_codes.setCurrentText(get_event_name(bet.event_status_code, AppLang.code))
+            self._event_status_codes.setCurrentText(get_event_status_name(bet.event_status_code, AppLang.code))
 
         self.addRow(self.tr("Событие:"), self._event_status_codes)
 

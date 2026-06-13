@@ -17,10 +17,11 @@ from betsys import (
     DBContext,
     CheckPoint,
     MatchDetails,
-    Signal
+    Signal,
+    EventCode
 )
 
-from src.worker.code import StatusCode, SignalMethodCode
+from src.worker.code import StatusCode
 from src.worker.handler import QueueHandler
 from src.worker.tuple import WorkerResponse, SignalResponse, LogEntry, ProgressResponse
 
@@ -84,28 +85,14 @@ class WorkerDriverProcess(object):
             logging.getLogger().addHandler(handler)
             logging.getLogger().setLevel(logging.DEBUG)
 
-            # 1. Создаём event loop
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
             db_context = DBContext(self._db_config)
 
-            # 2. Создаём экземпляр driver
             self._driver = SportEventDriver(self._driver_code, db_context, self._driver_config)
-            self._driver.signal_created.connect(
-                partial(self._connected_signal, signal_queue, SignalMethodCode.CREATED),
-                weak=False
-            )
-            self._driver.signal_restored.connect(
-                partial(self._connected_signal, signal_queue, SignalMethodCode.RESTORED),
-                weak=False)
-            self._driver.signal_deleted.connect(
-                partial(self._connected_signal, signal_queue, SignalMethodCode.DELETED),
-                weak=False)
-            self._driver.signal_evaluated.connect(
-                partial(self._connected_signal, signal_queue, SignalMethodCode.EVALUATED),
-                weak=False)
-            self._driver.update_progress.connect(partial(self._connected_progress, progress_queue), weak=False)
+            self._driver.event.connect(partial(self._connected_signal, signal_queue), weak=False)
+            self._driver.progress_updated.connect(partial(self._connected_progress, progress_queue), weak=False)
 
             loop.create_task(self._command_listener(commands_queue, resources_queue))
 
@@ -117,18 +104,18 @@ class WorkerDriverProcess(object):
     @staticmethod
     async def _connected_signal(
             signal_queue: Queue,
-            signal_method_code: SignalMethodCode,
             sender: str,
+            code: EventCode,
             signal: Signal,
-            match_details: MatchDetails,
+            details: MatchDetails,
             driver_code: DriverCode
     ) -> None:
         signal_queue.put(
             SignalResponse(
                 sender=sender,
-                signal_method_code=signal_method_code,
+                event_code=code,
                 signal=signal,
-                match_details=match_details,
+                details=details,
                 driver_code=driver_code
             )
         )

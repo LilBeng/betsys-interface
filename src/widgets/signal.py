@@ -25,7 +25,7 @@ from betsys import (
     get_risk_name,
     get_signal_type_name,
     get_driver_name,
-    CheckPoint
+    CheckPoint, EventCode, SportEventDriver
 )
 
 from src.dialogs.chat import ChatDialog
@@ -44,6 +44,8 @@ class SignalBorder(QFrame):
     update_progress = pysideSignal(int, int)
     show_message = pysideSignal(str)
     print_text = pysideSignal(str)
+
+    event = pysideSignal(EventCode, Signal, MatchDetails, DriverCode)
 
     update_tab_widget = pysideSignal(bool)
 
@@ -69,6 +71,24 @@ class SignalBorder(QFrame):
         main_layout.addWidget(scroll_area)
 
         self._show_match_dialog.connect(self._show_match)
+        self.event.connect(self.event_signal)
+
+    @Slot()
+    def event_signal(
+            self,
+            event_code: EventCode,
+            signal: Signal,
+            details: MatchDetails,
+            driver_code: DriverCode
+    ) -> None:
+        if event_code == EventCode.CREATED:
+            self.add_signal(signal, details, driver_code)
+        elif event_code == EventCode.COMPLETED:
+            self.update_signal(signal, details, driver_code)
+        elif event_code == EventCode.DELETED:
+            self.delete_signal(signal, details, driver_code)
+        else:
+            self.update_signal(signal, details, driver_code)
 
     @Slot()
     def add_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
@@ -81,6 +101,7 @@ class SignalBorder(QFrame):
         """
         widget = SignalWidget(signal, match_details, driver_code, self)
         widget.delete_signal.connect(self._delete_signal)
+        widget.invert_signal.connect(self.invert_signal)
         widget.print_text.connect(self.print_text.emit)
         widget.show_update_match.connect(self._get_match)
         self._signal_layout.addWidget(widget)
@@ -88,9 +109,9 @@ class SignalBorder(QFrame):
         self.update_tab_widget.emit(bool(self._signal_layout.count()))
 
     @Slot()
-    def evaluated_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
+    def update_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
         """
-        Предсказать сигнал.
+        Завершить сигнал.
 
         :param signal: Сигнал.
         :param match_details: Детали матча.
@@ -109,7 +130,7 @@ class SignalBorder(QFrame):
 
         if not is_check:
             self.add_signal(signal, match_details, driver_code)
-            self.evaluated_signal(signal, match_details, driver_code)
+            self.update_signal(signal, match_details, driver_code)
 
     @Slot()
     def _delete_signal(self, signal_id: str, driver_code: DriverCode) -> None:
@@ -180,6 +201,22 @@ class SignalBorder(QFrame):
         else:
             self.show_message.emit(self.tr(f"Сигналы не найдены"))
 
+    @Slot()
+    def invert_signal(self, signal_id: str, driver_code: DriverCode) -> None:
+        def _check(flag: bool) -> None:
+            if flag:
+                self.show_message.emit(self.tr("Сигнал (id={}) инвертирован").format(signal_id))
+            else:
+                self.show_message.emit(self.tr("Не удалось инвертировать сигнал (id={})").format(signal_id))
+
+        self._service.get_object(
+            _check,
+            driver_code,
+            SportEventDriver.__name__,
+            SportEventDriver.invert_signal.__name__,
+            signal_id
+        )
+
     def _remove_non_active_signals(self, signal_ids: list[str]) -> None:
         """
         Удалить завершенные сигналы.
@@ -233,6 +270,8 @@ class SignalWidget(QFrame):
     Виджет сигнала
     """
     delete_signal = pysideSignal(str, DriverCode)
+    invert_signal = pysideSignal(str, DriverCode)
+
     print_text = pysideSignal(str)
     show_update_match = pysideSignal(str, DriverCode)
 
@@ -357,6 +396,8 @@ class SignalWidget(QFrame):
         delete = menu.addAction(QIcon(":/resources/icons/delete.png"), self.tr("Удалить"))
         print_data = menu.addAction(QIcon(":/resources/icons/console.png"), self.tr("Вывести в консоль"))
         show_match = menu.addAction(QIcon(":/resources/icons/info.png"), self.tr("Показать матч"))
+        menu.addSeparator()
+        invert_signal = menu.addAction(QIcon(":/resources/icons/invert.png"), self.tr("Инвертировать сигнал"))
 
         if self._signal.recommendation and self._signal.recommendation.messages:
             menu.addSeparator()
@@ -367,8 +408,13 @@ class SignalWidget(QFrame):
         delete.triggered.connect(self._delete)
         print_data.triggered.connect(self._print_data)
         show_match.triggered.connect(self._show_match)
+        invert_signal.triggered.connect(self._invert_signal)
 
         menu.exec(self.mapToGlobal(position))
+
+    @Slot()
+    def _invert_signal(self) -> None:
+        self.invert_signal.emit(self.signal_id, self._driver_code)
 
     @Slot()
     def _delete(self) -> None:
@@ -415,8 +461,28 @@ class SignalWidget(QFrame):
 
         layout = QVBoxLayout(popup)
         layout.setContentsMargins(10, 10, 10, 10)
-        layout.addWidget(QLabel(self._signal.recommendation.conclusion, wordWrap=True))
-        layout.addWidget(QLabel(self._signal.recommendation.alternative, wordWrap=True))
+
+        if self._signal.signal_property.bet.is_inverted:
+            layout.addWidget(
+                QLabel(self.tr("Заключение [~]: {}").format(self._signal.recommendation.conclusion), wordWrap=True)
+            )
+        else:
+            layout.addWidget(
+                QLabel(self.tr("Заключение: {}").format(self._signal.recommendation.conclusion), wordWrap=True)
+            )
+
+        if self._signal.recommendation.alternative:
+            if self._signal.signal_property.bet.is_inverted:
+                layout.addWidget(
+                    QLabel(
+                        self.tr("Альтернатива [~]: {}").format(self._signal.recommendation.alternative),
+                        wordWrap=True
+                    )
+                )
+            else:
+                layout.addWidget(
+                    QLabel(self.tr("Альтернатива: {}").format(self._signal.recommendation.alternative), wordWrap=True)
+                )
 
         global_pos = self._info.mapToGlobal(QPoint(0, -popup.sizeHint().height()))
         popup.move(global_pos)
@@ -442,7 +508,7 @@ class SignalWidget(QFrame):
         elif forecast_code == ForecastCode.REFUND:
             palette.setColor(QPalette.ColorRole.Window, QColor(60, 95, 135))
         else:
-            palette.setColor(QPalette.ColorRole.Window, QColor(60, 65, 75))
+            palette.setColor(QPalette.ColorRole.Window, QColor(160, 140, 40))
 
         self._top_widget.setPalette(palette)
 

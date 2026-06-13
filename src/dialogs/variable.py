@@ -35,7 +35,7 @@ from betsys import (
     BET_TYPE,
     StatisticVar,
     FEventStatusCode,
-    get_event_name,
+    get_event_status_name,
     HEventStatusCode,
     VEventStatusCode,
     HStatisticCode,
@@ -459,23 +459,23 @@ class StatisticDialog(BaseVarDialog):
             for code in FEventStatusCode:
                 self._event_status_codes.addItem(
                     QIcon(":/resources/icons/football.png"),
-                    get_event_name(code, AppLang.code),
+                    get_event_status_name(code, AppLang.code),
                     code
                 )
             for code in HEventStatusCode:
                 self._event_status_codes.addItem(
                     QIcon(":/resources/icons/hockey.png"),
-                    get_event_name(code, AppLang.code),
+                    get_event_status_name(code, AppLang.code),
                     code
                 )
             for code in VEventStatusCode:
                 self._event_status_codes.addItem(
                     QIcon(":/resources/icons/volleyball.png"),
-                    get_event_name(code, AppLang.code),
+                    get_event_status_name(code, AppLang.code),
                     code
                 )
 
-            self._event_status_codes.setCurrentText(get_event_name(variable.event_status_code, AppLang.code))
+            self._event_status_codes.setCurrentText(get_event_status_name(variable.event_status_code, AppLang.code))
         else:
             self._current_time = QSpinBox(value=variable.current_time, minimum=1, maximum=200, parent=self)
 

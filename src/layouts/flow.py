@@ -48,18 +48,15 @@ class FlowLayout(QLayout):
         if not self.items:
             return 0
 
-        # Получаем margins
         left, top, right, bottom = self.getContentsMargins()
-
-        # Вычисляем доступную область с учетом отступов
         available_rect = rect.adjusted(left, top, -right, -bottom)
 
         if available_rect.width() <= 0:
             return top + bottom
 
-        # Сначала определяем, сколько виджетов максимально помещается в строке
-        max_per_row = 1
-        for count in range(1, len(self.items) + 1):
+        # Максимум 3 в строке, но с учётом доступной ширины
+        max_per_row = 0
+        for count in range(1, min(3, len(self.items)) + 1):
             total_width = sum(item.sizeHint().width() for item in self.items[:count])
             total_width += self.spacing() * (count - 1)
             if total_width <= available_rect.width():

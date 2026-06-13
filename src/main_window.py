@@ -238,7 +238,7 @@ class MainWindow(QMainWindow):
                 ]
             )
 
-        SportEventDriver.update_progress.connect(self.async_update_progress)
+        SportEventDriver.progress_updated.connect(self.async_update_progress)
 
         if not only_database:
             self.driver_tool_bar.football_run.triggered.connect(
@@ -349,10 +349,7 @@ class MainWindow(QMainWindow):
             self._signal_border.customContextMenuRequested.connect(self.show_context_menu)
             self._signal_border.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 
-            self._service.signal_created.connect(self._signal_border.add_signal)
-            self._service.signal_deleted.connect(self._signal_border.delete_signal)
-            self._service.signal_restored.connect(self._signal_border.add_signal)
-            self._service.signal_evaluated.connect(self._signal_border.evaluated_signal)
+            self._service.event.connect(self._signal_border.event.emit)
 
             self.driver_tool_bar.remove_finished_signals.triggered.connect(self._signal_border.remove_finished_signals)
             self.driver_tool_bar.print_signals.triggered.connect(self._signal_border.print_signals)

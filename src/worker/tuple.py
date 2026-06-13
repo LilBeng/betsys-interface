@@ -2,9 +2,9 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Optional, Any
 
-from betsys import DriverCode, MatchDetails, Signal
+from betsys import DriverCode, MatchDetails, Signal, EventCode
 
-from src.worker.code import StatusCode, SignalMethodCode
+from src.worker.code import StatusCode
 
 
 @dataclass
@@ -39,9 +39,9 @@ class WorkerResponse:
 @dataclass
 class SignalResponse:
     sender: str
-    signal_method_code: SignalMethodCode
+    event_code: EventCode
     signal: Signal
-    match_details: MatchDetails
+    details: MatchDetails
     driver_code: DriverCode
 
 

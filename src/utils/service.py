@@ -9,12 +9,12 @@ from betsys import (
     DBContext,
     MultiDriverConfig,
     DriverCode,
-    RunState,
+    RunStateCode,
     CheckPoint,
     Signal,
     get_driver_name,
     MatchDetails,
-    MatchCode
+    MatchCode, EventCode
 )
 from betsys.driver.base import Information
 from qasync import asyncSlot
@@ -31,7 +31,7 @@ from src.dialogs.transfer import TransferDialog
 from src.utils.cache import DataCache
 from src.utils.lang import AppLang
 from src.utils.worker import Worker
-from src.worker.code import StatusCode, SignalMethodCode
+from src.worker.code import StatusCode
 from src.worker.tuple import WorkerResponse
 from src.worker.worker import WorkerDriverProcess
 
@@ -43,13 +43,9 @@ class SportEventService(QObject):
     Сервис спортивных событий.
     """
     status_message = pysideSignal(str)
-
-    signal_created = pysideSignal(Signal, MatchDetails, DriverCode)
-    signal_evaluated = pysideSignal(Signal, MatchDetails, DriverCode)
-    signal_deleted = pysideSignal(Signal, MatchDetails, DriverCode)
-    signal_restored = pysideSignal(Signal, MatchDetails, DriverCode)
-
     update_progress = pysideSignal(int, int, DriverCode)
+
+    event = pysideSignal(EventCode, Signal, MatchDetails, DriverCode)
 
     def __init__(
             self,
@@ -125,14 +121,7 @@ class SportEventService(QObject):
                     f"(signal_id={response.signal.signal_id}, driver_code={response.driver_code})"
                 )
 
-                if response.signal_method_code == SignalMethodCode.CREATED:
-                    self.signal_created.emit(response.signal, response.match_details, response.driver_code)
-                elif response.signal_method_code == SignalMethodCode.DELETED:
-                    self.signal_deleted.emit(response.signal, response.match_details, response.driver_code)
-                elif response.signal_method_code == SignalMethodCode.RESTORED:
-                    self.signal_restored.emit(response.signal, response.match_details, response.driver_code)
-                elif response.signal_method_code == SignalMethodCode.EVALUATED:
-                    self.signal_evaluated.emit(response.signal, response.match_details, response.driver_code)
+                self.event.emit(response.event_code, response.signal, response.details, response.driver_code)
 
             progress_responses = worker.get_progress()
             for response in progress_responses:
@@ -151,9 +140,9 @@ class SportEventService(QObject):
                 self.get_name(SportEventDriver, SportEventDriver.state)
             )
             if is_running:
-                condition = response.result == RunState.RUNNING
+                condition = response.result == RunStateCode.RUNNING
             else:
-                condition = response.result != RunState.RUNNING
+                condition = response.result != RunStateCode.RUNNING
 
             if response and condition:
                 if is_running:
@@ -340,7 +329,7 @@ class SportEventService(QObject):
                 SportEventDriver.__name__,
                 self.get_name(SportEventDriver, SportEventDriver.state)
             )
-            if response and response.result == RunState.RUNNING:
+            if response and response.result == RunStateCode.RUNNING:
                 if is_script:
                     response_update = self._get_response(
                         worker,
