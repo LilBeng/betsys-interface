@@ -5,7 +5,7 @@ from PySide6.QtCore import QSize, Slot
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtWidgets import QStackedLayout, QComboBox, QFormLayout, QToolBar, QStatusBar, QProgressBar, QGroupBox, \
-    QHBoxLayout
+    QHBoxLayout, QWidget
 from betsys import DBContext, BaseDAO
 from betsys.db.database import check_tables_exist, create_tables
 from qasync import asyncSlot
@@ -18,8 +18,8 @@ from src.widgets.switch import Switch
 class TransferDialog(BaseDialog):
     update_progress = Signal(int, int)
 
-    def __init__(self, db_context: DBContext, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, db_context: DBContext, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(parent=parent, *args, **kwargs)
         self._db_context = db_context
 
         self.setWindowTitle(self.tr("Обмен данными"))

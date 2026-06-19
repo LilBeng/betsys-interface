@@ -1,3 +1,5 @@
+from typing import Optional
+
 from PySide6.QtCore import Slot, QSize, QPoint
 from PySide6.QtGui import Qt, QIcon, QColor, QAction
 from PySide6.QtWidgets import (
@@ -34,8 +36,8 @@ from src.widgets.variable import DraggableVariableWidget, VariableStackWidget
 
 
 class WeekdayFilterDialog(BaseScriptDialog):
-    def __init__(self, script: Script, *args, **kwargs) -> None:
-        super().__init__(script, *args, **kwargs)
+    def __init__(self, script: Script, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(script, parent, *args, **kwargs)
         self.setWindowTitle(self.tr("Фильтр дней недели"))
 
         self.central_layout.setSpacing(20)
@@ -62,8 +64,8 @@ class WeekdayFilterDialog(BaseScriptDialog):
 
 
 class SignalFilterDialog(BaseScriptDialog):
-    def __init__(self, script: Script, *args, **kwargs) -> None:
-        super().__init__(script, *args, **kwargs)
+    def __init__(self, script: Script, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(script, parent, *args, **kwargs)
         self.setWindowTitle(self.tr("Фильтр сигналов"))
 
         self._min_risk = QCheckBox(self.tr("Риск [Min]:"), self)
@@ -223,8 +225,8 @@ class SignalFilterDialog(BaseScriptDialog):
 
 
 class MatchFilterDialog(BaseScriptDialog):
-    def __init__(self, script: Script, *args, **kwargs) -> None:
-        super().__init__(script, *args, **kwargs)
+    def __init__(self, script: Script, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(script, parent, *args, **kwargs)
         self.setWindowTitle(self.tr("Фильтр матчей"))
 
         self.layout().setSizeConstraint(QLayout.SizeConstraint.SetDefaultConstraint)

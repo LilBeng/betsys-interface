@@ -3,7 +3,7 @@ from typing import Union, Optional
 
 from PySide6.QtCore import Slot, QSize, Qt
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QComboBox, QDoubleSpinBox, QCheckBox, QSpinBox
+from PySide6.QtWidgets import QComboBox, QDoubleSpinBox, QCheckBox, QSpinBox, QWidget
 from betsys import (
     OddsVar,
     ProbabilityVar,
@@ -66,8 +66,14 @@ from src.widgets.switch import Switch
 
 
 class BaseH2HDialog(BaseVarDialog):
-    def __init__(self, variable: Union[H2HAverageVar, H2HLengthSeriesVar], *args, **kwargs) -> None:
-        super().__init__(variable, *args, **kwargs)
+    def __init__(
+            self,
+            variable: Union[H2HAverageVar, H2HLengthSeriesVar],
+            parent: Optional[QWidget] = None,
+            *args,
+            **kwargs
+    ) -> None:
+        super().__init__(variable, parent, *args, **kwargs)
         self._team_code = QComboBox(self)
         for code in TeamCode:
             self._team_code.addItem(get_team_name(code, AppLang.code), code)
@@ -220,10 +226,11 @@ class BaseOtherDialog(BaseVarDialog):
             self,
             variable: Union[OddsVar, ProbabilityVar, KellyCriterionVar],
             all_events: bool,
+            parent: Optional[QWidget] = None,
             *args,
             **kwargs
     ) -> None:
-        super().__init__(variable, *args, **kwargs)
+        super().__init__(variable, parent, *args, **kwargs)
         self._bet = QComboBox(self)
         for code in BetCode:
             self._bet.addItem(get_total_bet_name(code, AppLang.code), code)
@@ -285,8 +292,8 @@ class BaseOtherDialog(BaseVarDialog):
 
 
 class ProbabilityDialog(BaseVarDialog):
-    def __init__(self, variable: ProbabilityVar, *args, **kwargs) -> None:
-        super().__init__(variable, *args, **kwargs)
+    def __init__(self, variable: ProbabilityVar, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(variable, parent, *args, **kwargs)
         self._predictor = QComboBox()
         self._predictor.addItem(self.tr("Любой"), None)
         for code in PredictorCode:
@@ -306,8 +313,8 @@ class ProbabilityDialog(BaseVarDialog):
 
 
 class ExpectedScoreDialog(BaseVarDialog):
-    def __init__(self, variable: ExpectedScoreVar, *args, **kwargs) -> None:
-        super().__init__(variable, *args, **kwargs)
+    def __init__(self, variable: ExpectedScoreVar, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(variable, parent, *args, **kwargs)
         self._team_code = QComboBox(self)
         self._team_code.addItem(self.tr("Нет"), None)
         for code in TeamCode:
@@ -339,8 +346,8 @@ class ExpectedScoreDialog(BaseVarDialog):
 
 
 class ShapeDialog(BaseVarDialog):
-    def __init__(self, variable: ShapeVar, *args, **kwargs) -> None:
-        super().__init__(variable, *args, **kwargs)
+    def __init__(self, variable: ShapeVar, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(variable, parent, *args, **kwargs)
         self._team_code = QComboBox(self)
         for code in TeamCode:
             self._team_code.addItem(get_team_name(code, AppLang.code), code)
@@ -359,8 +366,8 @@ class ShapeDialog(BaseVarDialog):
 
 
 class StrengthRatingDialog(BaseVarDialog):
-    def __init__(self, variable: StrengthRatingVar, *args, **kwargs) -> None:
-        super().__init__(variable, *args, **kwargs)
+    def __init__(self, variable: StrengthRatingVar, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(variable, parent, *args, **kwargs)
         self._team_code = QComboBox(self)
         for code in TeamCode:
             self._team_code.addItem(get_team_name(code, AppLang.code), code)
@@ -386,8 +393,8 @@ class StrengthRatingDialog(BaseVarDialog):
 
 
 class TotalGoalsBeforeDialog(BaseVarDialog):
-    def __init__(self, variable: TotalGoalsBeforeVar, *args, **kwargs) -> None:
-        super().__init__(variable, *args, **kwargs)
+    def __init__(self, variable: TotalGoalsBeforeVar, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(variable, parent, *args, **kwargs)
         self._team_code = QComboBox(self)
         self._team_code.addItem(self.tr("Общее"), None)
         for code in TeamCode:
@@ -417,8 +424,8 @@ class TotalGoalsBeforeDialog(BaseVarDialog):
 
 
 class NumericalDialog(BaseVarDialog):
-    def __init__(self, variable: NumericalVar, *args, **kwargs) -> None:
-        super().__init__(variable, *args, **kwargs)
+    def __init__(self, variable: NumericalVar, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(variable, parent, *args, **kwargs)
         self._numeric = QDoubleSpinBox(minimum=-1e3, maximum=1e3, singleStep=0.1, decimals=3, value=variable.numeric)
 
         self._is_int = Switch(size=QSize(50, 25), checked=isinstance(variable.numeric, int), parent=self)
@@ -448,8 +455,14 @@ class NumericalDialog(BaseVarDialog):
 
 
 class StatisticDialog(BaseVarDialog):
-    def __init__(self, variable: Union[StatisticVar, TimeLineStatisticVar], *args, **kwargs) -> None:
-        super().__init__(variable, *args, **kwargs)
+    def __init__(
+            self,
+            variable: Union[StatisticVar, TimeLineStatisticVar],
+            parent: Optional[QWidget] = None,
+            *args,
+            **kwargs
+    ) -> None:
+        super().__init__(variable, parent, *args, **kwargs)
         self._team_code = QComboBox(self)
         for code in TeamCode:
             self._team_code.addItem(get_team_name(code, AppLang.code), code)
@@ -525,8 +538,8 @@ class StatisticDialog(BaseVarDialog):
 
 
 class MetricProbabilityDialog(BaseVarDialog):
-    def __init__(self, variable: MetricProbabilityVar, *args, **kwargs) -> None:
-        super().__init__(variable, *args, **kwargs)
+    def __init__(self, variable: MetricProbabilityVar, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(variable, parent, *args, **kwargs)
         self._category_code = QComboBox(self)
         for match_category_code in MatchCategoryCode:
             self._category_code.addItem(get_match_category_name(match_category_code, AppLang.code), match_category_code)
@@ -595,8 +608,14 @@ class MetricProbabilityDialog(BaseVarDialog):
 
 
 class TableFormDialog(BaseVarDialog):
-    def __init__(self, variable: Union[TableFormAverageVar, TableFormLengthSeriesVar], *args, **kwargs) -> None:
-        super().__init__(variable, *args, **kwargs)
+    def __init__(
+            self,
+            variable: Union[TableFormAverageVar, TableFormLengthSeriesVar],
+            parent: Optional[QWidget] = None,
+            *args,
+            **kwargs
+    ) -> None:
+        super().__init__(variable, parent, *args, **kwargs)
         self._team_code = QComboBox(self)
         for code in TeamCode:
             self._team_code.addItem(get_team_name(code, AppLang.code), code)
@@ -698,10 +717,11 @@ class TableTrueDialog(BaseVarDialog):
     def __init__(
             self,
             variable: Union[TableTrueRowCountElementVar, TableElementVar, TableTruePositionVar],
+            parent: Optional[QWidget] = None,
             *args,
             **kwargs
     ) -> None:
-        super().__init__(variable, *args, **kwargs)
+        super().__init__(variable, parent, *args, **kwargs)
         self._game_code = QComboBox(self)
         for code in GameCode:
             self._game_code.addItem(get_game_name(code, AppLang.code), code)
@@ -747,8 +767,8 @@ class TableTrueDialog(BaseVarDialog):
 
 
 class TableAverageGoalsDialog(BaseVarDialog):
-    def __init__(self, variable: TableAverageGoalsVar, *args, **kwargs) -> None:
-        super().__init__(variable, *args, **kwargs)
+    def __init__(self, variable: TableAverageGoalsVar, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(variable, parent, *args, **kwargs)
         self._game_code = QComboBox(self)
         for code in GameCode:
             self._game_code.addItem(get_game_name(code, AppLang.code), code)

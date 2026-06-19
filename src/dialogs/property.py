@@ -1,6 +1,8 @@
+from typing import Optional
+
 from PySide6.QtCore import Qt, QSize, Slot
 from PySide6.QtWidgets import QComboBox, QSpinBox, QListWidget, QListWidgetItem, QCheckBox, QLabel, QFormLayout, \
-    QHBoxLayout, QGroupBox, QLayout
+    QHBoxLayout, QGroupBox, QLayout, QWidget
 from betsys import (
     Script,
     MatchCategoryCode,
@@ -25,8 +27,8 @@ from src.widgets.switch import Switch
 
 
 class MetricPropertyDialog(BaseScriptDialog):
-    def __init__(self, script: Script, *args, **kwargs) -> None:
-        super().__init__(script, *args, **kwargs)
+    def __init__(self, script: Script, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(script, parent, *args, **kwargs)
         self.setWindowTitle(self.tr("Параметры метрики"))
 
         self._category_code = QComboBox(self)
@@ -85,8 +87,8 @@ class MetricPropertyDialog(BaseScriptDialog):
 
 
 class LeaguePropertyDialog(BaseScriptDialog):
-    def __init__(self, script: Script, *args, **kwargs) -> None:
-        super().__init__(script, *args, **kwargs)
+    def __init__(self, script: Script, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(script, parent, *args, **kwargs)
         self.setWindowTitle(self.tr("Параметры лиг"))
 
         self._set = QListWidget(self)
@@ -148,8 +150,8 @@ class LeaguePropertyDialog(BaseScriptDialog):
 
 
 class BetPropertyDialog(BaseScriptDialog):
-    def __init__(self, script: Script, *args, **kwargs) -> None:
-        super().__init__(script, *args, **kwargs)
+    def __init__(self, script: Script, *args, parent: Optional[QWidget] = None, **kwargs) -> None:
+        super().__init__(script, parent, *args, **kwargs)
         self.setWindowTitle(self.tr("Параметры сигнала"))
 
         self._priority_code = QComboBox(self)
@@ -217,8 +219,8 @@ class BetPropertyDialog(BaseScriptDialog):
 
 
 class PromptDialog(BaseButtonDialog):
-    def __init__(self, model: AIPromptDBModel, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, model: AIPromptDBModel, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(parent=parent, *args, **kwargs)
         self._model = model
 
         self.setWindowTitle(self.tr("Параметры матча"))

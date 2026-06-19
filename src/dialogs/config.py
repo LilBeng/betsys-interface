@@ -24,7 +24,8 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QWidget,
     QToolBar,
-    QMenu, QCheckBox
+    QMenu,
+    QCheckBox
 )
 from betsys import (
     LiteDBConfig,
@@ -497,8 +498,14 @@ class DriverConfigDialog(QDialog):
     """
     Конфигурация драйвера.
     """
-    def __init__(self, config: Optional[DriverConfig] = None, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(
+            self,
+            config: Optional[DriverConfig] = None,
+            parent: Optional[QWidget] = None,
+            *args,
+            **kwargs
+    ) -> None:
+        super().__init__(parent=parent, *args, **kwargs)
 
         self.setWindowTitle(self.tr("Настройка конфигурации"))
         self.setWindowIcon(QIcon(":/resources/icons/config.png"))

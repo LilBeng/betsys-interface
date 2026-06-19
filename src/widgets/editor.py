@@ -226,5 +226,5 @@ class PromptEditorWidget(QWidget):
 
     @Slot()
     def show_dialog(self) -> None:
-        dialog = PromptDialog(self.model)
+        dialog = PromptDialog(self.model, self)
         dialog.exec()

@@ -184,8 +184,15 @@ class MatchDetailsDAODialog(BaseDAODialog):
 
 
 class MatchDetailsDialog(BaseDialog):
-    def __init__(self, driver_code: DriverCode, matches: list[MatchDetails], *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(
+            self,
+            driver_code: DriverCode,
+            matches: list[MatchDetails],
+            parent: Optional[QWidget] = None,
+            *args,
+            **kwargs
+    ) -> None:
+        super().__init__(parent=parent, *args, **kwargs)
 
         self.setGeometry(0, 0, 800, 600)
 

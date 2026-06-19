@@ -1,3 +1,5 @@
+from typing import Optional
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QDialog, QFormLayout, QLayout, QWidget, QDialogButtonBox
@@ -8,8 +10,8 @@ from src.utils.lang import AppLang
 
 
 class BaseDialog(QDialog):
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(parent=parent, *args, **kwargs)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
 
         self.wheel_blocker = WheelBlocker()
@@ -25,8 +27,8 @@ class BaseDialog(QDialog):
 
 
 class BaseButtonDialog(BaseDialog):
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(parent, *args, **kwargs)
         self.setWindowIcon(QIcon(":/resources/icons/config.png"))
 
         self.central_layout = QFormLayout()
@@ -43,14 +45,14 @@ class BaseButtonDialog(BaseDialog):
 
 
 class BaseScriptDialog(BaseButtonDialog):
-    def __init__(self, script: Script, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, script: Script, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(parent, *args, **kwargs)
         self._script = script
 
 
 class BaseVarDialog(BaseButtonDialog):
-    def __init__(self, variable: VARIABLE_TYPE,  *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, variable: VARIABLE_TYPE, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(parent, *args, **kwargs)
         self._variable = variable
 
         self.setFixedWidth(425)

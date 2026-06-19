@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 
 from PySide6.QtCore import Signal as pysideSignal, QPoint, QStandardPaths, QSize, Slot
-from PySide6.QtGui import QIcon, Qt, QPalette, QColor
+from PySide6.QtGui import QIcon, Qt, QPalette
 from PySide6.QtWidgets import (
     QWidget,
     QFormLayout,
@@ -36,6 +36,7 @@ from src.dialogs.match import MatchDetailsDialog
 from src.layouts.flow import FlowLayout
 from src.utils.blocker import WheelBlocker
 from src.utils.button import create_icon_push_button
+from src.utils.color import GREEN, RED, BLUE, YELLOW, GRAPHITE
 from src.utils.lang import AppLang
 from src.utils.service import SportEventService
 from src.widgets.color import ColorWidget
@@ -316,7 +317,7 @@ class SignalWidget(QFrame):
             title=match_details.match.match_summary.match_datetime.strftime("%d.%m.%Y - %H:%M"),
             icon=icon,
             icon_size=QSize(45, 45),
-            color=QColor(60, 65, 75),
+            color=GRAPHITE,
             parent=self
         )
 
@@ -505,13 +506,13 @@ class SignalWidget(QFrame):
 
         forecast_code = signal.signal_property.forecast(match_details.match)
         if forecast_code == ForecastCode.SUCCESSFUL:
-            palette.setColor(QPalette.ColorRole.Window, QColor(70, 130, 45))
+            palette.setColor(QPalette.ColorRole.Window, GREEN)
         elif forecast_code == ForecastCode.UNSUCCESSFUL:
-            palette.setColor(QPalette.ColorRole.Window, QColor(140, 65, 60))
+            palette.setColor(QPalette.ColorRole.Window, RED)
         elif forecast_code == ForecastCode.REFUND:
-            palette.setColor(QPalette.ColorRole.Window, QColor(60, 95, 135))
+            palette.setColor(QPalette.ColorRole.Window, BLUE)
         else:
-            palette.setColor(QPalette.ColorRole.Window, QColor(160, 140, 40))
+            palette.setColor(QPalette.ColorRole.Window, YELLOW)
 
         self._top_widget.setPalette(palette)
 

@@ -2,7 +2,6 @@ import logging
 from typing import Optional, Any
 
 from PySide6.QtCore import Signal, Qt
-from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QTableWidget, QHeaderView, QAbstractItemView, QTableWidgetItem
 from betsys import (
     ScriptDBModel,
@@ -19,9 +18,11 @@ from betsys import (
     get_team_headers,
     get_statistic_headers,
     Statistic,
-    get_statistic_name, ScoreStatistic
+    get_statistic_name,
+    ScoreStatistic
 )
 
+from src.utils.color import GREEN, RED, GREY
 from src.utils.delegate import ResultDelegate
 from src.utils.lang import AppLang
 
@@ -506,19 +507,19 @@ class StatisticWidget(BaseTableWidget):
             if index in (1, 2):
                 if index == 1:
                     if statistic.home_team_value < statistic.away_team_value:
-                        item.setBackground(QColor(244, 67, 54))
+                        item.setBackground(RED)
                     elif statistic.home_team_value > statistic.away_team_value:
-                        item.setBackground(QColor(76, 175, 80))
+                        item.setBackground(GREEN)
                     else:
-                        item.setBackground(QColor(158, 158, 158))
+                        item.setBackground(GREY)
 
                 elif index == 2:
                     if statistic.away_team_value < statistic.home_team_value:
-                        item.setBackground(QColor(244, 67, 54))
+                        item.setBackground(RED)
                     elif statistic.away_team_value > statistic.home_team_value:
-                        item.setBackground(QColor(76, 175, 80))
+                        item.setBackground(GREEN)
                     else:
-                        item.setBackground(QColor(158, 158, 158))
+                        item.setBackground(GREY)
 
                 item.setForeground(Qt.GlobalColor.black)
 

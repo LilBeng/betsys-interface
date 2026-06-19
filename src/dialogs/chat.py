@@ -1,3 +1,5 @@
+from typing import Optional
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import QFrame, QSizePolicy, QVBoxLayout, QLabel, QDialog, QScrollArea, QWidget, QHBoxLayout
@@ -52,8 +54,8 @@ class MessageBubble(QFrame):
 
 
 class ChatDialog(QDialog):
-    def __init__(self, messages: list[Message], *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, messages: list[Message], parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(parent=parent, *args, **kwargs)
         self.messages = messages
 
         self.setWindowTitle(self.tr("Чат"))

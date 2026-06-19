@@ -1,7 +1,9 @@
 from PySide6.QtCore import QModelIndex, Qt, QRect
-from PySide6.QtGui import QColor, QPainter
+from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QStyledItemDelegate, QStyleOptionViewItem
 from betsys import ResultCode
+
+from src.utils.color import GREEN, YELLOW, RED, GREY
 
 
 class ResultDelegate(QStyledItemDelegate):
@@ -19,16 +21,16 @@ class ResultDelegate(QStyledItemDelegate):
 
         for result_code in blocks:
             if result_code == ResultCode.WIN:
-                color = QColor(76, 175, 80)
+                color = GREEN
                 text = self.tr("В")
             elif result_code == ResultCode.DRAW:
-                color = QColor(255, 193, 7)
+                color = YELLOW
                 text = self.tr("Н")
             elif result_code == ResultCode.LOSS:
-                color = QColor(244, 67, 54)
+                color = RED
                 text = self.tr("П")
             else:
-                color = QColor(158, 158, 158)
+                color = GREY
                 text = self.tr("?")
 
             rect = QRect(x, option.rect.top() + self.b, self.a, self.a)

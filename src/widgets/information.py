@@ -3,12 +3,8 @@ import logging
 from PySide6.QtCore import Qt, Slot, Signal as pysideSignal, QPoint, QStandardPaths
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtWidgets import (
-    QWidget,
     QFrame,
     QVBoxLayout,
-    QScrollArea,
-    QFormLayout,
-    QLabel,
     QToolBar,
     QMenu,
     QLineEdit,
@@ -17,6 +13,7 @@ from PySide6.QtWidgets import (
 from betsys import DriverCode, CheckPoint, MatchDetails, format_match_details
 from betsys.driver.base import Information, SportEventDriver
 
+from src.dialogs.information import InformationDialog
 from src.dialogs.match import MatchDetailsDialog
 from src.utils.lang import AppLang
 from src.utils.service import SportEventService
@@ -31,8 +28,6 @@ class InformationWidget(QFrame):
     show_message = pysideSignal(str)
     update_progress = pysideSignal(int, int)
 
-    _update = pysideSignal()
-
     def __init__(
             self,
             service: SportEventService,
@@ -44,27 +39,21 @@ class InformationWidget(QFrame):
         self._service = service
         self._driver_code = driver_code
 
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
-
-        self._run_datetime = QLabel("...")
-        self._update_date = QLabel("...")
-        self._matches_count = QLabel("...")
-        self._scripts_count = QLabel("...")
-        self._signals_count = QLabel("...")
-        self._jobs_count = QLabel("...")
-        self._next_run_job_datetime = QLabel("...")
-
-        self._update_info = QAction(
+        self._update_table = QAction(
             icon=QIcon(":/resources/icons/update.png"),
-            text=self.tr("Обновить информацию"),
+            text=self.tr("Обновить матчи"),
             parent=self
         )
 
         self._print_info = QAction(
             icon=QIcon(":/resources/icons/console.png"),
             text=self.tr("Вывести зависимости в консоль"),
+            parent=self
+        )
+
+        self._show_info = QAction(
+            icon=QIcon(":/resources/icons/info.png"),
+            text=self.tr("Показать информацию"),
             parent=self
         )
 
@@ -75,7 +64,7 @@ class InformationWidget(QFrame):
         )
 
         self._show_match = QAction(
-            icon=QIcon(":/resources/icons/info.png"),
+            icon=QIcon(":/resources/icons/edit.png"),
             text=self.tr("Открыть матч"),
             parent=self
         )
@@ -93,61 +82,41 @@ class InformationWidget(QFrame):
         self._search_input.setPlaceholderText(self.tr("Введите текст для поиска ..."))
         self._search_input.textChanged.connect(self.on_search)
 
-        container = QWidget()
-        info_layout = QFormLayout(container)
-        info_layout.setSpacing(15)
-        info_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        info_layout.addRow(bar)
-        info_layout.addRow(self.tr("Дата запуска:"), self._run_datetime)
-        info_layout.addRow(self.tr("Дата загрузки матчей:"), self._update_date)
-        info_layout.addRow(self.tr("Количество матчей:"), self._matches_count)
-        info_layout.addRow(self.tr("Количество активных сценариев:"), self._scripts_count)
-        info_layout.addRow(self.tr("Количество активных сигналов:"), self._signals_count)
-        info_layout.addRow(self.tr("Запланировано задач:"), self._jobs_count)
-        info_layout.addRow(self.tr("Запуск следующей:"), self._next_run_job_datetime)
-        info_layout.addRow(self._table)
-        info_layout.addRow(self._search_input)
-
-        scroll_area.setWidget(container)
-
-        bar.addAction(self._update_info)
+        bar.addAction(self._update_table)
         bar.addAction(self._save_checkpoint)
+        bar.addAction(self._show_info)
         bar.addAction(self._print_info)
         bar.addAction(self._show_match)
 
+        self._show_info.triggered.connect(self.show_info)
         self._print_info.triggered.connect(self.print_info)
-        self._update_info.triggered.connect(self.update_info)
+        self._update_table.triggered.connect(self.update_table)
         self._save_checkpoint.triggered.connect(self.save_checkpoint)
         self._show_match.triggered.connect(self.show_match)
 
         main_layout = QVBoxLayout(self)
-        main_layout.addWidget(scroll_area)
+        main_layout.setSpacing(15)
+        main_layout.addWidget(bar)
+        main_layout.addWidget(self._table)
+        main_layout.addWidget(self._search_input)
 
-        self._update.connect(self.update_table)
-
-        self._update_info.triggered.emit()
+        self._update_table.triggered.emit()
 
     @property
     def driver_code(self) -> DriverCode:
         return self._driver_code
 
     @Slot()
-    def update_info(self) -> None:
-
-        def _update_info(information: Information) -> None:
+    def show_info(self) -> None:
+        def _show_info(information: Information) -> None:
             if information:
-                self._run_datetime.setText(information.run_datetime.strftime("%d.%m.%Y %H:%M"))
-                self._update_date.setText(information.update_date.strftime("%d.%m.%Y"))
-                self._matches_count.setText(str(information.matches_count))
-                self._scripts_count.setText(str(information.scripts_count))
-                self._signals_count.setText(str(information.signals_count))
-                self._jobs_count.setText(str(information.jobs_count))
-                self._next_run_job_datetime.setText(information.next_run_job_datetime.strftime("%H:%M:%S"))
-
-            self._update.emit()
+                dialog = InformationDialog(information, parent=self)
+                dialog.exec()
+            else:
+                self.show_message.emit(self.tr("Информация не получена"))
 
         self._service.get_object(
-            _update_info,
+            _show_info,
             self.driver_code,
             SportEventDriver.__name__,
             SportEventService.get_name(SportEventDriver, SportEventDriver.information),
