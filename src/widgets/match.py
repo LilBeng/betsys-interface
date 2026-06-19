@@ -22,7 +22,7 @@ from betsys import (
 
 from src.utils.blocker import WheelBlocker
 from src.utils.lang import AppLang
-from src.widgets.table import TableWidget, H2HWidget, TeamWidget, StatisticWidget
+from src.widgets.table import TableWidget, H2HWidget, TeamWidget, StatisticWidget, ScoreStatisticWidget
 
 
 class MatchDetailsWidget(QWidget):
@@ -67,10 +67,21 @@ class MatchDetailsWidget(QWidget):
                     )
                 data_layout.addRow(self.tr("Счет:"), score)
 
+        if match_details.match.statistic.score_statistics:
+            self._score_statistic = ScoreStatisticWidget(parent=self)
+            self._score_statistic.horizontalHeader().setMinimumSectionSize(150)
+
+            score_statistic = QGroupBox(self.tr("Время счета"), self)
+            layout.addRow(score_statistic)
+
+            score_statistic_layout = QFormLayout(score_statistic, horizontalSpacing=10, verticalSpacing=10)
+            score_statistic_layout.addRow(self._score_statistic)
+
+            self._score_statistic.set_items(match_details.match.statistic.score_statistics)
+
         if match_details.match.statistic.total:
             self._statistics = StatisticWidget(parent=self)
             self._statistics.horizontalHeader().setMinimumSectionSize(150)
-            self._statistics.setMinimumHeight(250)
 
             self._statistic_box = QComboBox(self)
             self._statistic_box.installEventFilter(self.wheel_blocker)
@@ -126,7 +137,6 @@ class MatchDetailsWidget(QWidget):
         if match_details.h2h:
             self._h2h = H2HWidget(parent=self)
             self._h2h.horizontalHeader().setMinimumSectionSize(150)
-            self._h2h.setMinimumHeight(250)
 
             self._team_box = QComboBox(self)
             self._team_box.installEventFilter(self.wheel_blocker)
@@ -165,7 +175,6 @@ class MatchDetailsWidget(QWidget):
         if match_details.match.home_team.players or match_details.match.away_team.players:
             self._teams = TeamWidget(parent=self)
             self._teams.horizontalHeader().setMinimumSectionSize(150)
-            self._teams.setMinimumHeight(250)
 
             self._players_box = QComboBox(self)
             self._players_box.installEventFilter(self.wheel_blocker)

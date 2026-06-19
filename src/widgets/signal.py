@@ -11,7 +11,8 @@ from PySide6.QtWidgets import (
     QMenu,
     QFileDialog,
     QFrame,
-    QDialog, QScrollArea
+    QDialog,
+    QScrollArea
 )
 from betsys import (
     Signal,
@@ -25,7 +26,9 @@ from betsys import (
     get_risk_name,
     get_signal_type_name,
     get_driver_name,
-    CheckPoint, EventCode, SportEventDriver
+    CheckPoint,
+    EventCode,
+    SportEventDriver
 )
 
 from src.dialogs.chat import ChatDialog

@@ -19,7 +19,7 @@ from betsys import (
     get_team_headers,
     get_statistic_headers,
     Statistic,
-    get_statistic_name
+    get_statistic_name, ScoreStatistic
 )
 
 from src.utils.delegate import ResultDelegate
@@ -521,6 +521,40 @@ class StatisticWidget(BaseTableWidget):
                         item.setBackground(QColor(158, 158, 158))
 
                 item.setForeground(Qt.GlobalColor.black)
+
+        self.setSortingEnabled(True)
+
+        header_height = self.horizontalHeader().height()
+        rows_height = sum(self.rowHeight(index) for index in range(self.rowCount()))
+        total_height = header_height + rows_height + 10
+
+        self.setMinimumHeight(total_height)
+        self.setMaximumHeight(total_height)
+
+
+class ScoreStatisticWidget(BaseTableWidget):
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__([self.tr("Время"), self.tr("Хозяева"), self.tr("Гости")], *args, **kwargs)
+
+    def add_item(self, statistic: ScoreStatistic) -> None:
+        self.setSortingEnabled(False)
+
+        self.insertRow(self.rowCount())
+
+        for index, value in enumerate(
+                [
+                    str(statistic.score_time),
+                    statistic.home_team_score,
+                    statistic.away_team_score
+                ]
+        ):
+            item = QTableWidgetItem(value)
+            item.setToolTip(str(value))
+            item.setData(Qt.ItemDataRole.DisplayRole, value)
+            item.setData(Qt.ItemDataRole.UserRole, value)
+
+            self.setItem(self.rowCount() - 1, index, item)
 
         self.setSortingEnabled(True)
 
