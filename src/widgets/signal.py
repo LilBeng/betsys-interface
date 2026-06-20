@@ -200,7 +200,8 @@ class SignalBorder(QFrame):
             for item in self._signal_layout.items[:]:
                 widget = item.widget()
                 if isinstance(widget, SignalWidget):
-                    self.print_text.emit(f"{widget.text}")
+                    if widget.is_active:
+                        self.print_text.emit(f"{widget.text}")
 
             self.show_message.emit(self.tr(f"Информация выведена в консоль"))
         else:
