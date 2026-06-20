@@ -174,11 +174,11 @@ class TransferDialog(BaseDialog):
                     await create_tables(context.async_engine)
 
                 if import_data:
-                    source = self._db_context
-                    target = context
-                else:
                     source = context
                     target = self._db_context
+                else:
+                    source = self._db_context
+                    target = context
 
                 if self._scripts.is_checked():
                     await self._transfer(source.scripts, target.scripts, batch_size)
