@@ -92,8 +92,8 @@ class SignalBorder(QFrame):
             self.update_signal(signal, details, driver_code)
         elif event_code == EventCode.DELETED:
             self.delete_signal(signal, details, driver_code)
-        else:
-            self.update_signal(signal, details, driver_code)
+        elif event_code == EventCode.RESTORED:
+            self.restored_signal(signal, details, driver_code)
 
     @Slot()
     def add_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
@@ -112,6 +112,16 @@ class SignalBorder(QFrame):
         self._signal_layout.addWidget(widget)
 
         self.update_tab_widget.emit(bool(self._signal_layout.count()))
+
+    @Slot()
+    def restored_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
+        for index in range(self._signal_layout.count()):
+            item = self._signal_layout.itemAt(index)
+            widget = item.widget()
+            if isinstance(widget, SignalWidget):
+                if signal.signal_id == widget.signal_id:
+                    widget.restored(signal, match_details)
+                    break
 
     @Slot()
     def update_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
@@ -200,8 +210,7 @@ class SignalBorder(QFrame):
             for item in self._signal_layout.items[:]:
                 widget = item.widget()
                 if isinstance(widget, SignalWidget):
-                    if widget.is_active:
-                        self.print_text.emit(f"{widget.text}")
+                    self.print_text.emit(f"{widget.text}")
 
             self.show_message.emit(self.tr(f"Информация выведена в консоль"))
         else:
@@ -406,8 +415,10 @@ class SignalWidget(QFrame):
         delete = menu.addAction(QIcon(":/resources/icons/delete.png"), self.tr("Удалить"))
         print_data = menu.addAction(QIcon(":/resources/icons/console.png"), self.tr("Вывести в консоль"))
         show_match = menu.addAction(QIcon(":/resources/icons/info.png"), self.tr("Показать матч"))
-        menu.addSeparator()
-        invert_signal = menu.addAction(QIcon(":/resources/icons/invert.png"), self.tr("Инвертировать сигнал"))
+        if self._signal.is_active:
+            menu.addSeparator()
+            invert_signal = menu.addAction(QIcon(":/resources/icons/invert.png"), self.tr("Инвертировать сигнал"))
+            invert_signal.triggered.connect(self._invert_signal)
 
         if self._signal.recommendation and self._signal.recommendation.messages:
             menu.addSeparator()
@@ -418,7 +429,6 @@ class SignalWidget(QFrame):
         delete.triggered.connect(self._delete)
         print_data.triggered.connect(self._print_data)
         show_match.triggered.connect(self._show_match)
-        invert_signal.triggered.connect(self._invert_signal)
 
         menu.exec(self.mapToGlobal(position))
 
@@ -497,6 +507,17 @@ class SignalWidget(QFrame):
         global_pos = self._info.mapToGlobal(QPoint(0, -popup.sizeHint().height()))
         popup.move(global_pos)
         popup.exec()
+
+    def restored(self, signal: Signal, match_details: MatchDetails) -> None:
+        self._signal = signal
+        self._match_details = match_details
+
+        self._score_label.clear()
+
+        palette = self._top_widget.palette()
+        palette.setColor(QPalette.ColorRole.Window, GRAPHITE)
+
+        self._top_widget.setPalette(palette)
 
     def forecast(self, signal: Signal, match_details: MatchDetails) -> None:
         """

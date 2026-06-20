@@ -145,15 +145,20 @@ class PromptEditorWidget(QWidget):
             QIcon(":/resources/icons/volleyball.png"),
         ]
 
+        self.wheel_blocker = WheelBlocker()
+
         self._bet_code = QComboBox(self)
+        self._bet_code.installEventFilter(self.wheel_blocker)
         for bet_code in BetCode:
             self._bet_code.addItem(get_total_bet_name(bet_code, AppLang.code), bet_code)
 
         self._match_code = QComboBox(self)
+        self._match_code.installEventFilter(self.wheel_blocker)
         for match_code, icon in zip(MatchCode, icons):
             self._match_code.addItem(icon, get_match_name(match_code, AppLang.code), match_code)
 
         self._signal_type_codes = QComboBox(self)
+        self._signal_type_codes.installEventFilter(self.wheel_blocker)
         for signal_type_code in SignalTypeCode:
             self._signal_type_codes.addItem(get_signal_type_name(signal_type_code, AppLang.code), signal_type_code)
 
@@ -162,6 +167,7 @@ class PromptEditorWidget(QWidget):
         self._signal_type_codes.setCurrentText(get_signal_type_name(model.signal_type_code, AppLang.code))
 
         self._number = QSpinBox(minimum=0, maximum=100, singleStep=1, value=model.number)
+        self._number.installEventFilter(self.wheel_blocker)
 
         self._text = QPlainTextEdit(self)
         self._text.setPlaceholderText(self.tr("Введите промт для ИИ модели ..."))
@@ -200,11 +206,6 @@ class PromptEditorWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(self._toolbar, alignment=Qt.AlignmentFlag.AlignTop)
         layout.addLayout(central_layout)
-
-        self.wheel_blocker = WheelBlocker()
-        self.installEventFilter(self.wheel_blocker)
-
-        self.setup_wheel_filter(self)
 
     def setup_wheel_filter(self, widget: QWidget) -> None:
         """

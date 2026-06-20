@@ -303,6 +303,7 @@ class PromptDAODialog(BaseDAODialog):
 
         if not self.tab_widget.count():
             self.tab_widget.setVisible(False)
+            self._search_input.setEnabled(True)
             self.central_widget.setEnabled(True)
             self.enabled_actions(True)
 
@@ -326,5 +327,6 @@ class PromptDAODialog(BaseDAODialog):
 
         self.tab_widget.addTab(widget, model.id)
         self.tab_widget.setVisible(True)
+        self._search_input.setEnabled(False)
         self.central_widget.setEnabled(False)
         self.enabled_actions(False)
