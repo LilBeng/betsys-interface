@@ -651,25 +651,25 @@ class SportEventService(QObject):
 
     @Slot()
     def show_leagues_dialog(self) -> None:
-        dialog = LeagueDAODialog(self.db_context)
+        dialog = LeagueDAODialog(self.db_context, parent=self.parent())
         dialog.exec()
 
     @Slot()
     def show_matches_dialog(self) -> None:
-        dialog = MatchDetailsDAODialog(self.db_context)
+        dialog = MatchDetailsDAODialog(self.db_context, parent=self.parent())
         dialog.exec()
 
     @Slot()
     def show_scripts_dialog(self) -> None:
-        dialog = ScriptDAODialog(self.db_context)
+        dialog = ScriptDAODialog(self.db_context, parent=self.parent())
         dialog.exec()
 
     @Slot()
     def show_signals_dialog(self) -> None:
-        dialog = SignalDAODialog(self.db_context)
+        dialog = SignalDAODialog(self.db_context, parent=self.parent())
         dialog.exec()
 
     @Slot()
     def show_prompts_dialog(self) -> None:
-        dialog = PromptDAODialog(self.db_context)
+        dialog = PromptDAODialog(self.db_context, parent=self.parent())
         dialog.exec()

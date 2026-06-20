@@ -1,9 +1,10 @@
 import logging
 from collections import defaultdict
+from typing import Optional
 
 from PySide6.QtCore import Signal, Slot, Qt
 from PySide6.QtGui import QIcon, QAction
-from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem
+from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem, QWidget
 from betsys import DBContext, LeagueDBModel, get_country_name, MatchCode
 from qasync import asyncSlot
 
@@ -145,12 +146,13 @@ class LeagueTreeWidget(QTreeWidget):
 
 class LeagueDAODialog(BaseDAODialog):
 
-    def __init__(self, db_context: DBContext, *args, **kwargs) -> None:
+    def __init__(self, db_context: DBContext, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
         super().__init__(
             db_context,
             LeagueTreeWidget,
             self.tr("БД Лиги"),
             QIcon(":/resources/icons/dao.png"),
+            parent,
             *args,
             **kwargs
         )

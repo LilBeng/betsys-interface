@@ -1,8 +1,19 @@
 from typing import Optional
 
 from PySide6.QtCore import Qt, QSize, Slot
-from PySide6.QtWidgets import QComboBox, QSpinBox, QListWidget, QListWidgetItem, QCheckBox, QLabel, QFormLayout, \
-    QHBoxLayout, QGroupBox, QLayout, QWidget
+from PySide6.QtWidgets import (
+    QComboBox,
+    QSpinBox,
+    QListWidget,
+    QListWidgetItem,
+    QCheckBox,
+    QLabel,
+    QFormLayout,
+    QHBoxLayout,
+    QGroupBox,
+    QLayout,
+    QWidget
+)
 from betsys import (
     Script,
     MatchCategoryCode,
@@ -150,7 +161,7 @@ class LeaguePropertyDialog(BaseScriptDialog):
 
 
 class BetPropertyDialog(BaseScriptDialog):
-    def __init__(self, script: Script, *args, parent: Optional[QWidget] = None, **kwargs) -> None:
+    def __init__(self, script: Script, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
         super().__init__(script, parent, *args, **kwargs)
         self.setWindowTitle(self.tr("Параметры сигнала"))
 
@@ -188,7 +199,7 @@ class BetPropertyDialog(BaseScriptDialog):
         self.central_layout.addRow(self._interval, self._interval_layout)
         self.central_layout.addRow(self._layout)
         self.central_layout.addRow(self.tr("Одиночный:"), self._is_single)
-        self.central_layout.addRow(self.tr("Рекомендация ИИ:"), self._check_ai)
+        self.central_layout.addRow(self.tr("Рекомендация:"), self._check_ai)
 
         self.setup_wheel_filter(self)
 

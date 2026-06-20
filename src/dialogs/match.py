@@ -29,12 +29,13 @@ from src.widgets.switch import Switch
 
 class MatchDetailsDAODialog(BaseDAODialog):
 
-    def __init__(self, db_context: DBContext, *args, **kwargs) -> None:
+    def __init__(self, db_context: DBContext, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
         super().__init__(
             db_context,
             QPlainTextEdit,
             self.tr("БД Матчи"),
             QIcon(":/resources/icons/dao.png"),
+            parent,
             *args,
             **kwargs
         )

@@ -1,11 +1,13 @@
+from typing import Optional
+
 from PySide6.QtCore import QFile, QIODevice, Qt
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QTextEdit
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QTextEdit, QWidget
 
 
 class ErrorDialog(QDialog):
-    def __init__(self, path: str, *args, **kwargs) -> None:
-        super().__init__(*args, *kwargs)
+    def __init__(self, path: str, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(parent=parent, *args, *kwargs)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setWindowTitle(self.tr("Ошибки"))
         self.setWindowIcon(QIcon(":/resources/icons/console.png"))

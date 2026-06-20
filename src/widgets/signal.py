@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from typing import Optional
 
 from PySide6.QtCore import Signal as pysideSignal, QPoint, QStandardPaths, QSize, Slot
@@ -387,6 +388,10 @@ class SignalWidget(QFrame):
     @property
     def is_active(self) -> bool:
         return self._signal.is_active
+
+    @property
+    def datetime(self) -> datetime:
+        return self._match_details.match.match_summary.match_datetime
 
     @property
     def text(self) -> str:

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from PySide6.QtCore import Slot, Qt
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtWidgets import QWidget, QComboBox, QLabel, QCheckBox, QFormLayout
@@ -153,12 +155,13 @@ class CalculatorWidget(QWidget):
 
 class SignalDAODialog(BaseDAODialog):
 
-    def __init__(self, db_context: DBContext, *args, **kwargs) -> None:
+    def __init__(self, db_context: DBContext, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
         super().__init__(
             db_context,
             CalculatorWidget,
             self.tr("БД Сигналы"),
             QIcon(":/resources/icons/dao.png"),
+            parent,
             *args,
             **kwargs
         )

@@ -1,9 +1,10 @@
 import logging
 import uuid
+from typing import Optional
 
 from PySide6.QtCore import Qt, Slot, QPoint
 from PySide6.QtGui import QIcon, QAction
-from PySide6.QtWidgets import QMenu, QTabWidget, QLineEdit
+from PySide6.QtWidgets import QMenu, QTabWidget, QLineEdit, QWidget
 from betsys import (
     DBContext,
     ScriptDBModel,
@@ -23,12 +24,13 @@ _logger = logging.getLogger(__name__)
 
 
 class ScriptDAODialog(BaseDAODialog):
-    def __init__(self, db_context: DBContext, *args, **kwargs) -> None:
+    def __init__(self, db_context: DBContext, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
         super().__init__(
             db_context,
             ScriptTableWidget,
             self.tr("БД Сценарии"),
             QIcon(":/resources/icons/dao.png"),
+            parent,
             *args,
             **kwargs
         )

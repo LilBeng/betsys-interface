@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Any
 
 from PySide6.QtCore import QRect, QSize, Qt, QPoint
 from PySide6.QtWidgets import QLayout, QWidget, QLayoutItem
@@ -11,6 +11,7 @@ class FlowLayout(QLayout):
 
     def addItem(self, item: QWidget) -> None:
         self.items.append(item)
+        self.sort_items()
 
     def count(self) -> int:
         return len(self.items)
@@ -43,6 +44,19 @@ class FlowLayout(QLayout):
         for item in self.items:
             size = size.expandedTo(item.minimumSize())
         return size
+
+    def sort_items(self, attr: str = "datetime", reverse: bool = False) -> None:
+        def get_sort_key(item: QLayoutItem) -> Any:
+            widget = item.widget()
+            if widget and hasattr(widget, attr):
+                value = getattr(widget, attr)
+                return value
+
+            return 0
+
+        self.items.sort(key=get_sort_key, reverse=reverse)
+        self.invalidate()
+        self.update()
 
     def do_layout(self, rect: QRect, is_test: bool) -> int:
         if not self.items:
