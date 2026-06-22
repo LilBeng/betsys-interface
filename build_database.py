@@ -17,7 +17,7 @@ if __name__ == "__main__":
         subprocess.run(
             [
                 "pyinstaller",
-                "build_client.spec",
+                "build_database.spec",
                 "--distpath", DIST_FOLDER, # noqa
                 "--clean",
                 "--noconfirm" # noqa

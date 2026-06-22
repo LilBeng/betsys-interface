@@ -12,7 +12,7 @@ from betsys import (
     get_total_bet_name,
     MatchCode,
     SignalTypeCode,
-    get_signal_type_name
+    get_signal_type_name, RiskCode, get_risk_name
 )
 from qasync import asyncSlot
 
@@ -31,6 +31,7 @@ class CalculatorWidget(QWidget):
         self._priority = QCheckBox(self.tr("Приоритет:"), self)
         self._type = QCheckBox(self.tr("Сигнал:"), self)
         self._bet = QCheckBox(self.tr("Ставка:"), self)
+        self._risk = QCheckBox(self.tr("Риск:"), self)
 
         self._scripts = QComboBox(self)
 
@@ -46,20 +47,27 @@ class CalculatorWidget(QWidget):
         for bet_code in BetCode:
             self._bet_code.addItem(get_total_bet_name(bet_code, AppLang.code), bet_code)
 
+        self._risk_code = QComboBox(self)
+        for risk_code in RiskCode:
+            self._risk_code.addItem(get_risk_name(risk_code, AppLang.code), risk_code)
+
         self._id.checkStateChanged.connect(self.change_id)
         self._priority.checkStateChanged.connect(self.change_priority)
         self._type.checkStateChanged.connect(self.change_type)
         self._bet.checkStateChanged.connect(self.change_bet)
+        self._risk.checkStateChanged.connect(self.change_risk)
 
         self._id.setCheckState(Qt.CheckState.Checked)
         self._priority.setCheckState(Qt.CheckState.Unchecked)
         self._type.setCheckState(Qt.CheckState.Unchecked)
         self._bet.setCheckState(Qt.CheckState.Unchecked)
+        self._risk.setCheckState(Qt.CheckState.Unchecked)
 
         self.change_id(Qt.CheckState.Checked)
         self.change_priority(Qt.CheckState.Unchecked)
         self.change_type(Qt.CheckState.Unchecked)
         self.change_bet(Qt.CheckState.Unchecked)
+        self.change_risk(Qt.CheckState.Unchecked)
 
         layout = QFormLayout(self)
         layout.setSpacing(15)
@@ -68,6 +76,7 @@ class CalculatorWidget(QWidget):
         layout.addRow(self._type, self._type_code)
         layout.addRow(self._bet, self._bet_code)
         layout.addRow(self._priority, self._priority_code)
+        layout.addRow(self._risk, self._risk_code)
 
         self.wheel_blocker = WheelBlocker()
         self.installEventFilter(self.wheel_blocker)
@@ -98,6 +107,9 @@ class CalculatorWidget(QWidget):
         if self._priority.isChecked():
             values["priority_code"] = self._priority_code.currentData()
 
+        if self._risk.isChecked():
+            values["risk_code"] = self._risk_code.currentData()
+
         return values
 
     @Slot()
@@ -127,6 +139,13 @@ class CalculatorWidget(QWidget):
             self._bet_code.setEnabled(True)
         else:
             self._bet_code.setEnabled(False)
+
+    @Slot()
+    def change_risk(self, state: Qt.CheckState) -> None:
+        if state == Qt.CheckState.Checked:
+            self._risk_code.setEnabled(True)
+        else:
+            self._risk_code.setEnabled(False)
 
     def set_data(self, scripts: list[ScriptDBModel], count_signals: int) -> None:
         self._scripts.clear()
