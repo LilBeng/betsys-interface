@@ -358,9 +358,6 @@ class Forecast(QObject):
         flags = []
         errors = []
 
-        weekdays_flags = []
-        leagues_flags = []
-
         if not in_memory:
             cache.details.clear()
 
@@ -390,6 +387,7 @@ class Forecast(QObject):
                 matches.append(match_details)
 
             self.update_progress.emit(index, len(details))
+
         if matches:
             self.send_message.emit(self.tr("\n>>> Общие данные\n"))
 
@@ -431,15 +429,16 @@ class Forecast(QObject):
                 self.send_message.emit(self.tr("\n>>> Проходимость по дням недели\n"))
 
                 years = defaultdict(lambda: defaultdict(list))
-                for match_date, matches in datetime_matches.items():
+                for match_date, dt_matches in datetime_matches.items():
                     calendar = match_date.isocalendar()
 
-                    for index, model in enumerate(matches, start=1):
+                    weekdays_flags = []
+                    for index, model in enumerate(dt_matches, start=1):
                         code = self.forecast(model, script.signal_property)
                         if code is not None:
                             weekdays_flags.append(code)
 
-                        self.update_progress.emit(index, len(matches))
+                        self.update_progress.emit(index, len(dt_matches))
 
                     if len(weekdays_flags):
                         successful_value = int(
@@ -521,17 +520,19 @@ class Forecast(QObject):
 
                     self.send_message.emit(self.tr("\nСтрана: {}").format(get_country_name(country_code, AppLang.code)))
 
-                    for j, (league, matches) in enumerate(league_matches.items(), start=1):
+                    for j, (league, l_matches) in enumerate(league_matches.items(), start=1):
 
                         self.update_progress.emit(j, len(league_matches))
 
                         if country_code == league.country_code:
-                            for index, model in enumerate(matches, start=1):
+                            leagues_flags = []
+
+                            for index, model in enumerate(l_matches, start=1):
                                 code = self.forecast(model, script.signal_property)
                                 if code is not None:
                                     leagues_flags.append(code)
 
-                                self.update_progress.emit(index, len(matches))
+                                self.update_progress.emit(index, len(l_matches))
 
                             if len(leagues_flags):
                                 successful_value = int(
@@ -572,8 +573,6 @@ class Forecast(QObject):
 
         del matches
         del flags
-        del weekdays_flags
-        del leagues_flags
         del script
         del details
 
