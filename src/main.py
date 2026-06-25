@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import traceback
 from typing import Optional, Union
@@ -14,6 +15,9 @@ import resources_rc  # noqa
 from src import DRIVER, CONFIG
 from src.dialogs.config import DAOConfigDialog
 from src.main_window import MainWindow
+
+
+_logger = logging.getLogger(__name__)
 
 
 def load_db() -> Optional[Union[LiteDBConfig, PostgresDBConfig]]:
@@ -43,8 +47,8 @@ def load_multiconfig() -> Optional[MultiDriverConfig]:
 
     try:
         return MultiDriverConfig.load(DRIVER)
-    except ValidationError:
-        pass
+    except ValidationError as exception:
+        _logger.exception(exception)
 
 
 def check_dao(db_context: DBContext) -> bool:

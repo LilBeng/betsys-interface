@@ -243,7 +243,7 @@ class ScraperGroupBox(QGroupBox):
         self.setTitle(self.tr("Доступ к Flashscore"))
 
         self._table = QTableWidget(0, 2)
-        self._table.setMaximumHeight(125)
+        self._table.setMaximumHeight(175)
         self._table.horizontalHeader().setStretchLastSection(True)
         self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
@@ -273,18 +273,15 @@ class ScraperGroupBox(QGroupBox):
         self._toolbar.addAction(self._add)
         self._toolbar.addAction(self._del)
 
-        self._project_id = QSpinBox(self, minimum=1)
         self._pages = QSpinBox(self, minimum=1)
         self._time_zone = QSpinBox(self, minimum=1, maximum=11)
 
         if config:
-            self._project_id.setValue(config.project_id)
             self._pages.setValue(config.pages)
             self._time_zone.setValue(config.time_zone)
             self._set_headers(config.headers)
 
         param_layout = QFormLayout()
-        param_layout.addRow(self.tr("ID проекта:"), self._project_id)
         param_layout.addRow(self.tr("Страница:"), self._pages)
         param_layout.addRow(self.tr("Часовой пояс:"), self._time_zone)
 
@@ -328,7 +325,6 @@ class ScraperGroupBox(QGroupBox):
     def config(self) -> FlashScoreConfig:
         return FlashScoreConfig(
             headers=self._headers,
-            project_id=self._project_id.value(),
             pages=self._pages.value(),
             time_zone=self._time_zone.value()
         )
