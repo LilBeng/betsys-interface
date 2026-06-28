@@ -14,7 +14,6 @@ class InformationDialog(BaseDialog):
         self.setWindowTitle(self.tr("Информация"))
         self.setWindowIcon(QIcon(":/resources/icons/info.png"))
 
-        self._run_datetime = QLabel(information.run_datetime.strftime("%d.%m.%Y %H:%M"))
         self._update_date = QLabel(information.update_date.strftime("%d.%m.%Y"))
         self._matches_count = QLabel(str(information.matches_count))
         self._scripts_count = QLabel(str(information.scripts_count))
@@ -26,7 +25,6 @@ class InformationDialog(BaseDialog):
         info_layout.setSpacing(15)
         info_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         info_layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
-        info_layout.addRow(self.tr("Дата запуска:"), self._run_datetime)
         info_layout.addRow(self.tr("Дата загрузки матчей:"), self._update_date)
         info_layout.addRow(self.tr("Количество матчей:"), self._matches_count)
         info_layout.addRow(self.tr("Количество активных сценариев:"), self._scripts_count)
