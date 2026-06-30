@@ -111,7 +111,9 @@ class BaseTableWidget(QTableWidget):
 
         for index, model in enumerate(models, start=1):
             self.add_item(model)
-            self.update_progress.emit(index, len(models))
+
+            if index == 1 or index % 10 == 0 or index == len(models):
+                self.update_progress.emit(index, len(models))
 
     def check_model(self, model: Any) -> bool:
         for row_index in range(self.rowCount()):
