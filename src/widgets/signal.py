@@ -491,18 +491,17 @@ class SignalWidget(QFrame):
                 QLabel(self.tr("Заключение: {}").format(self._signal.recommendation.conclusion), wordWrap=True)
             )
 
-        if self._signal.recommendation.alternative:
-            if self._signal.signal_property.bet.is_inverted:
-                layout.addWidget(
-                    QLabel(
-                        self.tr("Альтернатива [~]: {}").format(self._signal.recommendation.alternative),
-                        wordWrap=True
-                    )
+        if self._signal.recommendation.alternatives:
+            parts = []
+            for i, alternative in enumerate(self._signal.recommendation.alternatives, start=1):
+                parts.append(f"{i}. {alternative.market} ({alternative.probability:.0%}) — {alternative.reasoning}")
+
+            layout.addWidget(
+                QLabel(
+                    self.tr("Предложение: {}").format("\n".join(parts)),
+                    wordWrap=True
                 )
-            else:
-                layout.addWidget(
-                    QLabel(self.tr("Альтернатива: {}").format(self._signal.recommendation.alternative), wordWrap=True)
-                )
+            )
 
         global_pos = self._info.mapToGlobal(QPoint(0, -popup.sizeHint().height()))
         popup.move(global_pos)
