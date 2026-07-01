@@ -498,7 +498,7 @@ class SignalWidget(QFrame):
 
             layout.addWidget(
                 QLabel(
-                    self.tr("Предложение: {}").format("\n".join(parts)),
+                    self.tr("Предложение:\n{}").format("\n".join(parts)),
                     wordWrap=True
                 )
             )
