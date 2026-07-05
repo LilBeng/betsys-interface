@@ -38,7 +38,7 @@ class BetStackedLayout(QStackedLayout):
         super().__init__(*args, **kwargs)
         self._over_under = _BetGroupBox(OverUnderLayout, bet, all_events, match_code, parent_widget)
         self._both_to_score = _BetGroupBox(BothToScoreLayout, bet, all_events, match_code, parent_widget)
-        self._one_x_two = _BetGroupBox(OneXTwoLayout, bet, all_events, parent_widget)
+        self._one_x_two = _BetGroupBox(OneXTwoLayout, bet, all_events, match_code, parent_widget)
         self._double_chance = _BetGroupBox(DoubleChanceLayout, bet, all_events, match_code, parent_widget)
         self._odd_or_even = _BetGroupBox(OddOrEvenLayout, bet, all_events, match_code, parent_widget)
 
