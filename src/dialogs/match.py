@@ -1,6 +1,6 @@
 from typing import Optional, Callable
 
-from PySide6.QtCore import QThread, QSize
+from PySide6.QtCore import QThread, QSize, Slot
 from PySide6.QtGui import QIcon, QAction, Qt, QScreen
 from PySide6.QtWidgets import (
     QPlainTextEdit,
@@ -230,5 +230,6 @@ class MatchDetailsDialog(BaseDialog):
 
             self._stacked_layout.addWidget(scroll_area)
 
+    @Slot()
     def _changed(self, index: int) -> None:
         self._stacked_layout.setCurrentIndex(index)

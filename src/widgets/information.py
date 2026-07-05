@@ -14,6 +14,7 @@ from betsys import DriverCode, CheckPoint, MatchDetails, format_match_details
 from betsys.driver.base import Information, SportEventDriver
 
 from src.dialogs.information import InformationDialog
+from src.dialogs.market import StackedMarketDialog
 from src.dialogs.match import MatchDetailsDialog
 from src.utils.lang import AppLang
 from src.utils.service import SportEventService
@@ -170,6 +171,12 @@ class InformationWidget(QFrame):
             )
             action.triggered.connect(self._print_match_info)
 
+            show_market = context_menu.addAction(
+                QIcon(":/resources/icons/info.png"),
+                self.tr("Показать коэффициенты")
+            )
+            show_market.triggered.connect(self._show_market)
+
             context_menu.addAction(self._show_match)
 
         context_menu.exec(self._table.mapToGlobal(position))
@@ -180,6 +187,11 @@ class InformationWidget(QFrame):
             self.print_text.emit(f"{format_match_details(model, AppLang.code)}")
 
         self.show_message.emit(self.tr("Операция выполнена"))
+
+    @Slot()
+    def _show_market(self) -> None:
+        dialog = StackedMarketDialog(self._table.get_selected_models(), self)
+        dialog.exec()
 
     @Slot()
     def on_search(self, text: str) -> None:

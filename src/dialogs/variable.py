@@ -105,7 +105,7 @@ class BaseH2HDialog(BaseVarDialog):
         else:
             bet = None
 
-        self._bet_stacked = BetStackedLayout(bet, False, self)
+        self._bet_stacked = BetStackedLayout(bet, False, parent_widget=self)
 
         self._bet = QComboBox(self)
         for code in BetCode:
@@ -244,7 +244,7 @@ class BaseOtherDialog(BaseVarDialog):
         else:
             bet = None
 
-        self._bet_stacked = BetStackedLayout(bet, all_events, self)
+        self._bet_stacked = BetStackedLayout(bet, all_events, parent_widget=self)
 
         self._bet.currentIndexChanged.connect(self._changed_bet)
         if bet:
@@ -568,7 +568,7 @@ class MetricProbabilityDialog(BaseVarDialog):
             parent=self
         )
 
-        self._bet_stacked = BetStackedLayout(variable.bet, False, self)
+        self._bet_stacked = BetStackedLayout(variable.bet, False, parent_widget=self)
 
         self._bet = QComboBox(self)
         for code in BetCode:
@@ -636,7 +636,7 @@ class TableFormDialog(BaseVarDialog):
         else:
             bet = None
 
-        self._bet_stacked = BetStackedLayout(bet, False, self)
+        self._bet_stacked = BetStackedLayout(bet, False, parent_widget=self)
 
         self._bet = QComboBox(self)
         for code in BetCode:

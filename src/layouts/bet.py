@@ -18,47 +18,84 @@ from betsys import (
     BothToScoreBet,
     OneXTwoBet,
     DoubleChanceBet,
-    OddOrEvenBet
+    OddOrEvenBet, MatchCode
 )
 
 from src.utils.lang import AppLang
 
 
 class BaseBetLayout(QFormLayout):
-    def __init__(self, bet: Optional[BaseBet] = None, all_events: bool = False, *args, **kwargs) -> None:
+    def __init__(
+            self,
+            bet: Optional[BaseBet] = None,
+            all_events: bool = False,
+            match_code: Optional[MatchCode] = None,
+            *args, **kwargs
+    ) -> None:
         super().__init__(*args, **kwargs)
 
         self._event_status_codes = QComboBox()
 
-        for code in FEventStatusCode:
-            self._event_status_codes.addItem(
-                QIcon(":/resources/icons/football.png"),
-                get_event_status_name(code, AppLang.code),
-                code
-            )
+        if match_code == MatchCode.FOOTBALL:
+            for code in FEventStatusCode:
+                self._event_status_codes.addItem(
+                    QIcon(":/resources/icons/football.png"),
+                    get_event_status_name(code, AppLang.code),
+                    code
+                )
 
-            if not all_events:
-                break
+                if not all_events:
+                    break
+        elif match_code == MatchCode.HOCKEY:
+            for code in HEventStatusCode:
+                self._event_status_codes.addItem(
+                    QIcon(":/resources/icons/hockey.png"),
+                    get_event_status_name(code, AppLang.code),
+                    code
+                )
 
-        for code in HEventStatusCode:
-            self._event_status_codes.addItem(
-                QIcon(":/resources/icons/hockey.png"),
-                get_event_status_name(code, AppLang.code),
-                code
-            )
+                if not all_events:
+                    break
+        elif match_code == MatchCode.VOLLEYBALL:
+            for code in VEventStatusCode:
+                self._event_status_codes.addItem(
+                    QIcon(":/resources/icons/volleyball.png"),
+                    get_event_status_name(code, AppLang.code),
+                    code
+                )
 
-            if not all_events:
-                break
+                if not all_events:
+                    break
+        else:
+            for code in FEventStatusCode:
+                self._event_status_codes.addItem(
+                    QIcon(":/resources/icons/football.png"),
+                    get_event_status_name(code, AppLang.code),
+                    code
+                )
 
-        for code in VEventStatusCode:
-            self._event_status_codes.addItem(
-                QIcon(":/resources/icons/volleyball.png"),
-                get_event_status_name(code, AppLang.code),
-                code
-            )
+                if not all_events:
+                    break
 
-            if not all_events:
-                break
+            for code in HEventStatusCode:
+                self._event_status_codes.addItem(
+                    QIcon(":/resources/icons/hockey.png"),
+                    get_event_status_name(code, AppLang.code),
+                    code
+                )
+
+                if not all_events:
+                    break
+
+            for code in VEventStatusCode:
+                self._event_status_codes.addItem(
+                    QIcon(":/resources/icons/volleyball.png"),
+                    get_event_status_name(code, AppLang.code),
+                    code
+                )
+
+                if not all_events:
+                    break
 
         if bet:
             self._event_status_codes.setCurrentText(get_event_status_name(bet.event_status_code, AppLang.code))
@@ -71,8 +108,15 @@ class BaseBetLayout(QFormLayout):
 
 
 class OverUnderLayout(BaseBetLayout):
-    def __init__(self, bet: Optional[OverUnderBet] = None, all_events: bool = False, *args, **kwargs) -> None:
-        super().__init__(bet, all_events, *args, **kwargs)
+    def __init__(
+            self,
+            bet: Optional[OverUnderBet] = None,
+            all_events: bool = False,
+            match_code: Optional[MatchCode] = None,
+            *args,
+            **kwargs
+    ) -> None:
+        super().__init__(bet, all_events, match_code, *args, **kwargs)
 
         self._type = QComboBox()
         for flag in [True, False]:
@@ -183,8 +227,15 @@ class OverUnderLayout(BaseBetLayout):
 
 
 class BothToScoreLayout(BaseBetLayout):
-    def __init__(self, bet: Optional[BothToScoreBet] = None, all_events: bool = False, *args, **kwargs) -> None:
-        super().__init__(bet, all_events, *args, **kwargs)
+    def __init__(
+            self,
+            bet: Optional[BothToScoreBet] = None,
+            all_events: bool = False,
+            match_code: Optional[MatchCode] = None,
+            *args,
+            **kwargs
+    ) -> None:
+        super().__init__(bet, all_events, match_code, *args, **kwargs)
 
         self._type = QComboBox()
         for flag in [True, False]:
@@ -209,8 +260,14 @@ class BothToScoreLayout(BaseBetLayout):
 
 
 class OneXTwoLayout(BaseBetLayout):
-    def __init__(self, bet: Optional[OneXTwoBet] = None, all_events: bool = False, parent: QWidget = None) -> None:
-        super().__init__(bet, all_events, parent)
+    def __init__(
+            self,
+            bet: Optional[OneXTwoBet] = None,
+            all_events: bool = False,
+            match_code: Optional[MatchCode] = None,
+            parent: QWidget = None
+    ) -> None:
+        super().__init__(bet, all_events, match_code, parent)
         self._type = QComboBox(parent=parent)
         for code in [*TeamCode, None]:
             self._type.addItem(get_bet_name(BetCode.ONE_X_TWO, code, AppLang.code), code)
@@ -234,8 +291,14 @@ class OneXTwoLayout(BaseBetLayout):
 
 
 class DoubleChanceLayout(BaseBetLayout):
-    def __init__(self, bet: Optional[DoubleChanceBet] = None, all_events: bool = False, parent: QWidget = None) -> None:
-        super().__init__(bet, all_events, parent)
+    def __init__(
+            self,
+            bet: Optional[DoubleChanceBet] = None,
+            all_events: bool = False,
+            match_code: Optional[MatchCode] = None,
+            parent: QWidget = None
+    ) -> None:
+        super().__init__(bet, all_events, match_code, parent)
         self._type = QComboBox(parent=parent)
         for code in [*TeamCode, None]:
             self._type.addItem(get_bet_name(BetCode.DOUBLE_CHANCE, code, AppLang.code), code)
@@ -259,8 +322,14 @@ class DoubleChanceLayout(BaseBetLayout):
 
 
 class OddOrEvenLayout(BaseBetLayout):
-    def __init__(self, bet: Optional[OddOrEvenBet] = None, all_events: bool = False, parent: QWidget = None) -> None:
-        super().__init__(bet, all_events, parent)
+    def __init__(
+            self,
+            bet: Optional[OddOrEvenBet] = None,
+            all_events: bool = False,
+            match_code: Optional[MatchCode] = None,
+            parent: QWidget = None
+    ) -> None:
+        super().__init__(bet, all_events, match_code, parent)
 
         self._type = QComboBox(parent=parent)
         for flag in [True, False]:

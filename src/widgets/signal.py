@@ -33,6 +33,7 @@ from betsys import (
 )
 
 from src.dialogs.chat import ChatDialog
+from src.dialogs.market import StackedMarketDialog
 from src.dialogs.match import MatchDetailsDialog
 from src.layouts.flow import FlowLayout
 from src.utils.blocker import WheelBlocker
@@ -415,6 +416,7 @@ class SignalWidget(QFrame):
         delete = menu.addAction(QIcon(":/resources/icons/delete.png"), self.tr("Удалить"))
         print_data = menu.addAction(QIcon(":/resources/icons/console.png"), self.tr("Вывести в консоль"))
         show_match = menu.addAction(QIcon(":/resources/icons/info.png"), self.tr("Показать матч"))
+        show_market = menu.addAction(QIcon(":/resources/icons/info.png"), self.tr("Показать коэффициенты"))
         if self._signal.is_active:
             menu.addSeparator()
             invert_signal = menu.addAction(QIcon(":/resources/icons/invert.png"), self.tr("Инвертировать сигнал"))
@@ -429,6 +431,7 @@ class SignalWidget(QFrame):
         delete.triggered.connect(self._delete)
         print_data.triggered.connect(self._print_data)
         show_match.triggered.connect(self._show_match)
+        show_market.triggered.connect(self._show_market)
 
         menu.exec(self.mapToGlobal(position))
 
@@ -447,10 +450,15 @@ class SignalWidget(QFrame):
     @Slot()
     def _show_match(self) -> None:
         if self._match_details.match.match_summary.match_status_code == MatchStatusCode.COMPLETED:
-            dialog = MatchDetailsDialog(self._driver_code, [self._match_details])
+            dialog = MatchDetailsDialog(self._driver_code, [self._match_details], self)
             dialog.exec()
         else:
             self.show_update_match.emit(self._match_details.match.match_id, self._driver_code)
+
+    @Slot()
+    def _show_market(self) -> None:
+        dialog = StackedMarketDialog([self._match_details], self)
+        dialog.exec()
 
     @Slot()
     def _save_screen(self) -> None:
