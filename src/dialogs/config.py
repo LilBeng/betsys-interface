@@ -1,6 +1,6 @@
 import logging
 import os
-import zoneinfo
+
 from typing import Optional, Union
 
 from PySide6.QtCore import Slot, Qt, QStandardPaths, QTime, QSize, QPoint
@@ -24,8 +24,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QWidget,
     QToolBar,
-    QMenu,
-    QCheckBox
+    QMenu
 )
 from betsys import (
     LiteDBConfig,
@@ -35,15 +34,12 @@ from betsys import (
     LangCode,
     get_lang_name,
     Time,
-    PredictorCode,
-    ForeBetConfig,
     AIAssistantConfig,
-    get_predictor_name,
     APIClientConfig,
     DialogConfig,
     ReasoningEffortCode,
     get_reasoning_effort_name,
-    AutosaveConfig
+    AutosaveConfig, ForeBetConfig
 )
 
 from src import CONFIG, AUTOSAVE_DIR
@@ -370,35 +366,6 @@ class ScraperGroupBox(QGroupBox):
             self._table.removeRow(current_row)
 
 
-class ForeBetConfigBox(QGroupBox):
-    """
-    Конфигурация ForeBet.
-    """
-    def __init__(self, config: Optional[ForeBetConfig] = None, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.setTitle(get_predictor_name(PredictorCode.FORE_BET, AppLang.code))
-
-        self._offset = get_time_edit(self)
-
-        if config:
-            self._offset.setTime(
-                QTime(config.offset.hours, config.offset.minutes, config.offset.seconds)
-            )
-
-        layout = QFormLayout(self)
-        layout.addRow(self.tr("Синхронизация времени:"), self._offset)
-
-    @property
-    def config(self) -> ForeBetConfig:
-        return ForeBetConfig(
-            offset=Time(
-                hours=self._offset.time().hour(),
-                minutes=self._offset.time().minute(),
-                seconds=self._offset.time().second()
-            )
-        )
-
-
 class AIConfigBox(QGroupBox):
     """
     Конфигурация ИИ.
@@ -414,9 +381,6 @@ class AIConfigBox(QGroupBox):
         self._timeout = QSpinBox(self, minimum=100, maximum=1000)
         self._max_retries = QSpinBox(self, minimum=1, maximum=10)
 
-        self._is_thinking = QCheckBox(self.tr("Уровень рассуждения:"))
-        self._is_thinking.checkStateChanged.connect(self._state_thinking)
-
         self._reasoning_effort = QComboBox(self)
         for reasoning_effort_code in ReasoningEffortCode:
             self._reasoning_effort.addItem(
@@ -428,7 +392,7 @@ class AIConfigBox(QGroupBox):
         dialog_layout = QFormLayout(dialog_box)
         dialog_layout.addRow(self.tr("Модель:"), self._model)
         dialog_layout.addRow(self.tr("Температура:"), self._temperature)
-        dialog_layout.addRow(self._is_thinking, self._reasoning_effort)
+        dialog_layout.addRow(self.tr("Уровень рассуждения:"), self._reasoning_effort)
 
         api_box = QGroupBox(title=self.tr("Параметры API"))
         api_layout = QFormLayout(api_box)
@@ -444,18 +408,9 @@ class AIConfigBox(QGroupBox):
             self._base_url.setText(config.client_config.base_url)
             self._timeout.setValue(config.client_config.timeout)
             self._max_retries.setValue(config.client_config.max_retries)
-
-            if config.dialog_config.reasoning_effort_code is not None:
-                self._is_thinking.setCheckState(Qt.CheckState.Checked)
-                self._reasoning_effort.setCurrentText(
-                    get_reasoning_effort_name(config.dialog_config.reasoning_effort_code, AppLang.code)
-                )
-            else:
-                self._is_thinking.setCheckState(Qt.CheckState.Unchecked)
-        else:
-            self._is_thinking.setCheckState(Qt.CheckState.Unchecked)
-
-        self._state_thinking(self._is_thinking.checkState())
+            self._reasoning_effort.setCurrentText(
+                get_reasoning_effort_name(config.dialog_config.reasoning_effort_code, AppLang.code)
+            )
 
         layout = QFormLayout(self)
         layout.addRow(dialog_box)
@@ -463,31 +418,20 @@ class AIConfigBox(QGroupBox):
 
     @property
     def config(self) -> AIAssistantConfig:
-        if self._is_thinking.checkState() == Qt.CheckState.Checked:
-            reasoning_effort_code = self._reasoning_effort.currentData()
-        else:
-            reasoning_effort_code = None
-
         return AIAssistantConfig(
             dialog_config=DialogConfig(
                 model=self._model.text(),
                 temperature=self._temperature.value(),
-                reasoning_effort_code=reasoning_effort_code
+                reasoning_effort_code=self._reasoning_effort.currentData()
             ),
             client_config=APIClientConfig(
                 api_key=self._api_key.text(),
                 base_url=self._base_url.text(),
                 timeout=self._timeout.value(),
                 max_retries=self._max_retries.value()
-            )
+            ),
+            is_active=True
         )
-
-    @Slot()
-    def _state_thinking(self, state: Qt.CheckState) -> None:
-        if state == Qt.CheckState.Checked:
-            self._reasoning_effort.setEnabled(True)
-        else:
-            self._reasoning_effort.setEnabled(False)
 
 
 class DriverConfigDialog(QDialog):
@@ -506,9 +450,8 @@ class DriverConfigDialog(QDialog):
         self.setWindowTitle(self.tr("Настройка конфигурации"))
         self.setWindowIcon(QIcon(":/resources/icons/config.png"))
 
-        self._scraper_box = ScraperGroupBox(config.scraper_config, parent=self)
-        self._assistant_box = AIConfigBox(config.assistant_config, parent=self)
-        self._fore_bet_box = ForeBetConfigBox(config.probability_config, parent=self)
+        self._scraper_box = ScraperGroupBox(config.scraper_config if config else None, parent=self)
+        self._assistant_box = AIConfigBox(config.assistant_config if config else None, parent=self)
 
         self._max_workers = QSpinBox(self, minimum=1, maximum=os.cpu_count())
 
@@ -516,18 +459,29 @@ class DriverConfigDialog(QDialog):
         for code in [LangCode.RU, LangCode.EN]:
             self._lang_box.addItem(get_lang_name(code), code)
 
-        self._timeline_statistic = Switch(size=QSize(50, 25), checked=config.time_line_statistic, parent=self)
-        self._assistant = Switch(size=QSize(50, 25), checked=bool(config.assistant_config), parent=self)
-        self._probability = Switch(size=QSize(50, 25), checked=bool(config.probability_config), parent=self)
-        self._autosave = Switch(size=QSize(50, 25), checked=bool(config.autosave_config), parent=self)
+        self._timeline_statistic = Switch(
+            size=QSize(50, 25),
+            checked=config.time_line_statistic if config else False,
+            parent=self
+        )
+        self._assistant = Switch(
+            size=QSize(50, 25),
+            checked=bool(config.assistant_config.is_active) if config else False,
+            parent=self
+        )
+        self._probability = Switch(
+            size=QSize(50, 25),
+            checked=bool(config.provider_config.is_active) if config else False,
+            parent=self
+        )
+        self._autosave = Switch(
+            size=QSize(50, 25),
+            checked=bool(config.autosave_config.is_active) if config else False,
+            parent=self
+        )
 
         self._assistant.toggled.connect(self.change_assistant)
-        self._probability.toggled.connect(self.change_probability)
         self._autosave.toggled.connect(self.change_autosave)
-
-        self._timezone = QComboBox(self)
-        for zone in sorted(zoneinfo.available_timezones()):
-            self._timezone.addItem(zone)
 
         self._misfire_time = get_time_edit(self)
         self._update_match = get_time_edit(self)
@@ -559,7 +513,6 @@ class DriverConfigDialog(QDialog):
                     )
                 )
 
-            self._timezone.setCurrentText(config.timezone)
             self._lang_box.setCurrentText(get_lang_name(config.lang_code))
 
             self._misfire_time.setTime(
@@ -577,13 +530,11 @@ class DriverConfigDialog(QDialog):
 
         self.change_autosave(self._autosave.is_checked())
         self.change_assistant(self._assistant.is_checked())
-        self.change_probability(self._probability.is_checked())
 
         scheduler_box = QGroupBox(self, title=self.tr("Планировщик задач"))
         scheduler_layout = QFormLayout(scheduler_box)
         scheduler_layout.setSpacing(10)
         scheduler_layout.addRow(self.tr("Количество потоков:"), self._max_workers)
-        scheduler_layout.addRow(self.tr("Часовой пояс:"), self._timezone)
         scheduler_layout.addRow(self.tr("Время задержки задачи:"), self._misfire_time)
         scheduler_layout.addRow(self.tr("Таймер обновления матча:"), self._update_match)
         scheduler_layout.addRow(self.tr("Таймер обновления состава:"), self._update_teams)
@@ -621,7 +572,6 @@ class DriverConfigDialog(QDialog):
 
         left_layout = QVBoxLayout()
         left_layout.addWidget(self._scraper_box)
-        left_layout.addWidget(self._fore_bet_box)
 
         bottom_layout = QHBoxLayout()
         bottom_layout.addLayout(left_layout)
@@ -642,37 +592,29 @@ class DriverConfigDialog(QDialog):
 
     @property
     def config(self) -> DriverConfig:
-        if self._autosave.is_checked():
-            autosave_config = AutosaveConfig(
-                time=Time(
-                    hours=self._autosave_time.time().hour(),
-                    minutes=self._autosave_time.time().minute(),
-                    seconds=self._autosave_time.time().second()
-                ),
-                folder_path=self._path.text() if self._path.text() else AUTOSAVE_DIR
-            )
-        else:
-            autosave_config = None
+        autosave_config = AutosaveConfig(
+            time=Time(
+                hours=self._autosave_time.time().hour(),
+                minutes=self._autosave_time.time().minute(),
+                seconds=self._autosave_time.time().second()
+            ),
+            folder_path=self._path.text() if self._path.text() else AUTOSAVE_DIR,
+            is_active=self._autosave.is_checked()
+        )
 
-        if self._assistant.is_checked():
-            assistant_config = self._assistant_box.config
-        else:
-            assistant_config = None
+        assistant_config = self._assistant_box.config
+        assistant_config.is_active = self._assistant.is_checked()
 
-        if self._probability.is_checked():
-            probability_config = self._fore_bet_box.config
-        else:
-            probability_config = None
+        provider_config = ForeBetConfig(is_active=self._probability.is_checked())
 
         return DriverConfig(
             scraper_config=self._scraper_box.config,
             assistant_config=assistant_config,
             autosave_config=autosave_config,
-            probability_config=probability_config,
+            provider_config=provider_config,
             lang_code=self._lang_box.currentData(),
             time_line_statistic=self._timeline_statistic.is_checked(),
             max_workers=self._max_workers.value(),
-            timezone=self._timezone.currentText(),
             misfire_time=Time(
                 hours=self._misfire_time.time().hour(),
                 minutes=self._misfire_time.time().minute(),
@@ -694,10 +636,6 @@ class DriverConfigDialog(QDialog):
                 seconds=self._update_matches.time().second()
             )
         )
-
-    @Slot()
-    def change_probability(self, flag: bool) -> None:
-        self._fore_bet_box.setEnabled(flag)
 
     @Slot()
     def change_assistant(self, flag: bool) -> None:
