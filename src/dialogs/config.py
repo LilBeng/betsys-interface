@@ -239,7 +239,6 @@ class ScraperGroupBox(QGroupBox):
         self.setTitle(self.tr("Доступ к Flashscore"))
 
         self._table = QTableWidget(0, 2)
-        self._table.setMaximumHeight(175)
         self._table.horizontalHeader().setStretchLastSection(True)
         self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
@@ -279,7 +278,7 @@ class ScraperGroupBox(QGroupBox):
 
         param_layout = QFormLayout()
         param_layout.addRow(self.tr("Страница:"), self._pages)
-        param_layout.addRow(self.tr("Часовой пояс:"), self._time_zone)
+        param_layout.addRow(self.tr("UTC+:"), self._time_zone)
 
         table_layout = QHBoxLayout()
         table_layout.addWidget(self._table)
@@ -452,6 +451,7 @@ class DriverConfigDialog(QDialog):
 
         self._scraper_box = ScraperGroupBox(config.scraper_config if config else None, parent=self)
         self._assistant_box = AIConfigBox(config.assistant_config if config else None, parent=self)
+        self._assistant_box.setFixedWidth(550)
 
         self._max_workers = QSpinBox(self, minimum=1, maximum=os.cpu_count())
 
@@ -532,6 +532,7 @@ class DriverConfigDialog(QDialog):
         self.change_assistant(self._assistant.is_checked())
 
         scheduler_box = QGroupBox(self, title=self.tr("Планировщик задач"))
+        scheduler_box.setFixedWidth(550)
         scheduler_layout = QFormLayout(scheduler_box)
         scheduler_layout.setSpacing(10)
         scheduler_layout.addRow(self.tr("Количество потоков:"), self._max_workers)
