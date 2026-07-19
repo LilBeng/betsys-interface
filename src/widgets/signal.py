@@ -27,7 +27,8 @@ from betsys import (
     get_driver_name,
     CheckPoint,
     EventCode,
-    SportEventDriver
+    SportEventDriver,
+    get_global_event_status_name
 )
 
 from src.dialogs.chat import ChatDialog
@@ -87,11 +88,13 @@ class SignalBorder(QFrame):
         if event_code == EventCode.CREATED:
             self.add_signal(signal, details, driver_code)
         elif event_code == EventCode.COMPLETED:
-            self.update_signal(signal, details, driver_code)
+            self.complete_signal(signal, details, driver_code)
         elif event_code == EventCode.DELETED:
             self.delete_signal(signal, details, driver_code)
         elif event_code == EventCode.UPDATED:
-            self.restored_signal(signal, details, driver_code)
+            self.update_signal(signal, details, driver_code)
+        elif event_code == EventCode.RESUMED:
+            self.resume_signal(signal, details, driver_code)
 
     @Slot()
     def add_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
@@ -113,17 +116,27 @@ class SignalBorder(QFrame):
         self.update_tab_widget.emit(bool(self._signal_layout.count()))
 
     @Slot()
-    def restored_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
+    def update_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
         for index in range(self._signal_layout.count()):
             item = self._signal_layout.itemAt(index)
             widget = item.widget()
             if isinstance(widget, SignalWidget):
                 if signal.signal_id == widget.signal_id:
-                    widget.restored(signal, match_details)
+                    widget.update_data(signal, match_details)
                     break
 
     @Slot()
-    def update_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
+    def resume_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
+        for index in range(self._signal_layout.count()):
+            item = self._signal_layout.itemAt(index)
+            widget = item.widget()
+            if isinstance(widget, SignalWidget):
+                if signal.signal_id == widget.signal_id:
+                    widget.resume_data(signal, match_details)
+                    break
+
+    @Slot()
+    def complete_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
         """
         Завершить сигнал.
 
@@ -144,7 +157,7 @@ class SignalBorder(QFrame):
 
         if not is_check:
             self.add_signal(signal, match_details, driver_code)
-            self.update_signal(signal, match_details, driver_code)
+            self.complete_signal(signal, match_details, driver_code)
 
     @Slot()
     def _delete_signal(self, signal_id: str, driver_code: DriverCode) -> None:
@@ -348,12 +361,11 @@ class SignalWidget(QFrame):
             parent=self
         )
 
-        self._score_label = QLabel()
-
-        self._top_widget.central_layout.addWidget(self._score_label, alignment=Qt.AlignmentFlag.AlignRight)
+        self._status_label = QLabel()
 
         center_layout = QFormLayout()
         center_layout.setHorizontalSpacing(25)
+        center_layout.addRow(self.tr("Статус матча:"), self._status_label)
         center_layout.addRow(
             self.tr("Тип сигнала:"),
             QLabel(get_signal_type_name(signal.signal_property.signal_type_code, AppLang.code))
@@ -391,6 +403,8 @@ class SignalWidget(QFrame):
 
         layout.addWidget(self._top_widget)
         layout.addLayout(center_layout)
+
+        self._set_status(match_details)
 
     @property
     def signal_id(self) -> str:
@@ -493,11 +507,34 @@ class SignalWidget(QFrame):
     def _run_analyse(self) -> None:
         self.run_analyse.emit(self._signal.signal_id, self.driver_code)
 
-    def restored(self, signal: Signal, match_details: MatchDetails) -> None:
+    def _set_status(self, match_details: MatchDetails) -> None:
+        status = get_global_event_status_name(match_details.match.match_summary.event_status_code, AppLang.code)
+
+        home_score = match_details.match.match_summary.home_team_score
+        away_score = match_details.match.match_summary.away_team_score
+        if home_score is not None and away_score is not None:
+            score = f" {home_score}:{away_score}"
+        else:
+            score = ""
+
+        if match_details.match.match_summary.current_time != -1:
+            current_time = f" ({match_details.match.match_summary.current_time}\')"
+        else:
+            current_time = ""
+
+        self._status_label.setText(f"{status}{score}{current_time}")
+
+    def update_data(self, signal: Signal, match_details: MatchDetails) -> None:
         self._signal = signal
         self._match_details = match_details
 
-        self._score_label.clear()
+        self._set_status(match_details)
+
+    def resume_data(self, signal: Signal, match_details: MatchDetails) -> None:
+        self._signal = signal
+        self._match_details = match_details
+
+        self._set_status(match_details)
 
         palette = self._top_widget.palette()
         palette.setColor(QPalette.ColorRole.Window, GRAPHITE)
@@ -528,10 +565,4 @@ class SignalWidget(QFrame):
 
         self._top_widget.setPalette(palette)
 
-        if forecast_code == ForecastCode.UNDEFINED:
-            self._score_label.setText(self.tr("Отмена сигнала"))
-        else:
-            home_score = match_details.match.match_summary.home_team_score
-            away_score = match_details.match.match_summary.away_team_score
-            if home_score is not None and away_score is not None:
-                self._score_label.setText(self.tr("Счет {}:{}").format(home_score, away_score))
+        self._set_status(match_details)
