@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (
     QMenu,
     QFileDialog,
     QFrame,
-    QDialog,
     QScrollArea
 )
 from betsys import (
@@ -24,7 +23,6 @@ from betsys import (
     get_priority_name,
     MatchStatusCode,
     format_signal,
-    get_risk_name,
     get_signal_type_name,
     get_driver_name,
     CheckPoint,
@@ -37,7 +35,6 @@ from src.dialogs.market import StackedMarketDialog
 from src.dialogs.match import MatchDetailsDialog
 from src.layouts.flow import FlowLayout
 from src.utils.blocker import WheelBlocker
-from src.utils.button import create_icon_push_button
 from src.utils.color import GREEN, RED, BLUE, YELLOW, GRAPHITE
 from src.utils.lang import AppLang
 from src.utils.service import SportEventService
@@ -93,7 +90,7 @@ class SignalBorder(QFrame):
             self.update_signal(signal, details, driver_code)
         elif event_code == EventCode.DELETED:
             self.delete_signal(signal, details, driver_code)
-        elif event_code == EventCode.RESTORED:
+        elif event_code == EventCode.UPDATED:
             self.restored_signal(signal, details, driver_code)
 
     @Slot()
@@ -110,6 +107,7 @@ class SignalBorder(QFrame):
         widget.invert_signal.connect(self.invert_signal)
         widget.print_text.connect(self.print_text.emit)
         widget.show_update_match.connect(self._get_match)
+        widget.run_analyse.connect(self.run_analyse_signal)
         self._signal_layout.addWidget(widget)
 
         self.update_tab_widget.emit(bool(self._signal_layout.count()))
@@ -233,6 +231,22 @@ class SignalBorder(QFrame):
             signal_id
         )
 
+    @Slot()
+    def run_analyse_signal(self, signal_id: Signal, driver_code: DriverCode) -> None:
+        def _check(flag: bool) -> None:
+            if flag:
+                self.show_message.emit(self.tr("Сигнал (id={}) - анализ завершен").format(signal_id))
+            else:
+                self.show_message.emit(self.tr("Не удалось проанализировать сигнал (id={})").format(signal_id))
+
+        self._service.get_object(
+            _check,
+            driver_code,
+            SportEventDriver.__name__,
+            SportEventDriver.generate_assistant_response.__name__,
+            signal_id
+        )
+
     def _remove_non_active_signals(self, signal_ids: list[str]) -> None:
         """
         Удалить завершенные сигналы.
@@ -289,6 +303,7 @@ class SignalWidget(QFrame):
     invert_signal = pysideSignal(str, DriverCode)
 
     print_text = pysideSignal(str)
+    run_analyse = pysideSignal(str, DriverCode)
     show_update_match = pysideSignal(str, DriverCode)
 
     def __init__(
@@ -355,15 +370,16 @@ class SignalWidget(QFrame):
             self.tr("Ставка:"),
             QLabel(f"{signal.signal_property.bet.format_reports(True, AppLang.code)}")
         )
-        if signal.signal_property.bet.odds:
-            center_layout.addRow(self.tr("Коэффициенты:"), QLabel(f"{signal.signal_property.bet.get_odds_reports()}"))
-        else:
-            center_layout.addRow(self.tr("Коэффициенты:"), QLabel(self.tr("Нет данных")))
 
         if signal.metric:
             center_layout.addRow(self.tr("Метрика:"), QLabel(f"{signal.metric}"))
         else:
             center_layout.addRow(self.tr("Метрика:"), QLabel(self.tr("Нет данных")))
+
+        if signal.signal_property.bet.odds:
+            center_layout.addRow(self.tr("Коэффициенты:"), QLabel(f"{signal.signal_property.bet.get_odds_reports()}"))
+        else:
+            center_layout.addRow(self.tr("Коэффициенты:"), QLabel(self.tr("Нет данных")))
 
         if signal.signal_property.bet.probabilities:
             center_layout.addRow(
@@ -372,18 +388,6 @@ class SignalWidget(QFrame):
             )
         else:
             center_layout.addRow(self.tr("Вероятности:"), QLabel(self.tr("Нет данных")))
-
-        if signal.recommendation:
-            self._info = create_icon_push_button(
-                icon=QIcon(":/resources/icons/info.png"),
-                tooltip=self.tr("Информация"),
-                parent=self
-            )
-            self._info.clicked.connect(self._show_recommendation_info)
-
-            self._top_widget.central_layout.addWidget(self._info, alignment=Qt.AlignmentFlag.AlignRight)
-            value = QLabel(f"{get_risk_name(signal.recommendation.risk_code, AppLang.code)}")
-            center_layout.addRow(QLabel(self.tr("Риск:")), value)
 
         layout.addWidget(self._top_widget)
         layout.addLayout(center_layout)
@@ -422,10 +426,13 @@ class SignalWidget(QFrame):
             invert_signal = menu.addAction(QIcon(":/resources/icons/invert.png"), self.tr("Инвертировать сигнал"))
             invert_signal.triggered.connect(self._invert_signal)
 
-        if self._signal.recommendation and self._signal.recommendation.messages:
-            menu.addSeparator()
-            show_dialog = menu.addAction(QIcon(":/resources/icons/dialog.png"), self.tr("Показать чат"))
-            show_dialog.triggered.connect(self._show_dialog)
+        menu.addSeparator()
+
+        run_assistant = menu.addAction(QIcon(":/resources/icons/run.png"), self.tr("Запустить анализ ИИ"))
+        run_assistant.triggered.connect(self._run_analyse)
+
+        show_dialog = menu.addAction(QIcon(":/resources/icons/dialog.png"), self.tr("Показать чат"))
+        show_dialog.triggered.connect(self._show_dialog)
 
         screen.triggered.connect(self._save_screen)
         delete.triggered.connect(self._delete)
@@ -479,41 +486,12 @@ class SignalWidget(QFrame):
 
     @Slot()
     def _show_dialog(self) -> None:
-        dialog = ChatDialog(self._signal.recommendation.messages, parent=self)
+        dialog = ChatDialog(self._signal.messages, parent=self)
         dialog.exec()
 
     @Slot()
-    def _show_recommendation_info(self) -> None:
-        popup = QDialog(self, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
-        popup.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
-
-        layout = QVBoxLayout(popup)
-        layout.setContentsMargins(10, 10, 10, 10)
-
-        if self._signal.signal_property.bet.is_inverted:
-            layout.addWidget(
-                QLabel(self.tr("Заключение [~]: {}").format(self._signal.recommendation.conclusion), wordWrap=True)
-            )
-        else:
-            layout.addWidget(
-                QLabel(self.tr("Заключение: {}").format(self._signal.recommendation.conclusion), wordWrap=True)
-            )
-
-        if self._signal.recommendation.alternatives:
-            parts = []
-            for i, alternative in enumerate(self._signal.recommendation.alternatives, start=1):
-                parts.append(f"{i}. {alternative.market} ({alternative.probability:.0%}) — {alternative.reasoning}")
-
-            layout.addWidget(
-                QLabel(
-                    self.tr("Предложение:\n{}").format("\n".join(parts)),
-                    wordWrap=True
-                )
-            )
-
-        global_pos = self._info.mapToGlobal(QPoint(0, -popup.sizeHint().height()))
-        popup.move(global_pos)
-        popup.exec()
+    def _run_analyse(self) -> None:
+        self.run_analyse.emit(self._signal.signal_id, self.driver_code)
 
     def restored(self, signal: Signal, match_details: MatchDetails) -> None:
         self._signal = signal

@@ -179,7 +179,6 @@ class BetPropertyDialog(BaseScriptDialog):
             self._type.addItem(get_total_bet_name(code, AppLang.code), code)
 
         self._is_single = Switch(size=QSize(50, 25), checked=script.signal_property.is_single, parent=self)
-        self._check_ai = Switch(size=QSize(50, 25), checked=script.signal_property.check_ai, parent=self)
         self._interval = QCheckBox(self.tr("Время сигнала:"))
         self._interval.checkStateChanged.connect(self.change_interval)
 
@@ -199,7 +198,6 @@ class BetPropertyDialog(BaseScriptDialog):
         self.central_layout.addRow(self._interval, self._interval_layout)
         self.central_layout.addRow(self._layout)
         self.central_layout.addRow(self.tr("Одиночный:"), self._is_single)
-        self.central_layout.addRow(self.tr("Рекомендация:"), self._check_ai)
 
         self.setup_wheel_filter(self)
 
@@ -220,7 +218,6 @@ class BetPropertyDialog(BaseScriptDialog):
         self._script.signal_property.priority_code = self._priority_code.currentData()
         self._script.signal_property.bet = self._layout.bet
         self._script.signal_property.is_single = self._is_single.is_checked()
-        self._script.signal_property.check_ai = self._check_ai.is_checked()
         if self._interval.isChecked():
             self._script.signal_property.interval = self._interval_layout.interval
         else:

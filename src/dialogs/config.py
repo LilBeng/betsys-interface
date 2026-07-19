@@ -1,6 +1,5 @@
 import logging
 import os
-
 from typing import Optional, Union
 
 from PySide6.QtCore import Slot, Qt, QStandardPaths, QTime, QSize, QPoint

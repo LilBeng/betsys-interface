@@ -112,7 +112,8 @@ class SportEventService(QObject):
                             msg=entry.msg,
                             args=(),
                             exc_info=None
-                        ))
+                        )
+                    )
 
             signal_responses = worker.get_signals()
             for response in signal_responses:

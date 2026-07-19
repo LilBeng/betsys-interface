@@ -16,7 +16,6 @@ from src import DRIVER, CONFIG
 from src.dialogs.config import DAOConfigDialog
 from src.main_window import MainWindow
 
-
 _logger = logging.getLogger(__name__)
 
 

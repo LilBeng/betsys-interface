@@ -1,16 +1,26 @@
+from datetime import datetime
 from typing import Optional
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QFont, QIcon
-from PySide6.QtWidgets import QFrame, QSizePolicy, QVBoxLayout, QLabel, QDialog, QScrollArea, QWidget, QHBoxLayout
+from PySide6.QtWidgets import (
+    QFrame,
+    QSizePolicy,
+    QVBoxLayout,
+    QLabel,
+    QDialog,
+    QScrollArea,
+    QWidget,
+    QHBoxLayout
+)
 from betsys import Message, get_role_name, RoleCode
 
 from src.utils.lang import AppLang
 
 
 class MessageBubble(QFrame):
-    def __init__(self, message: Message, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, message: Message, parent, *args, **kwargs) -> None:
+        super().__init__(parent=parent, *args, **kwargs)
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setFrameShadow(QFrame.Shadow.Raised)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -54,47 +64,163 @@ class MessageBubble(QFrame):
 
 
 class ChatDialog(QDialog):
-    def __init__(self, messages: list[Message], parent: Optional[QWidget] = None, *args, **kwargs) -> None:
-        super().__init__(parent=parent, *args, **kwargs)
+    message_sent = Signal(str)
+
+    def __init__(self, messages: list[Message], parent: Optional[QWidget] = None):
+        super().__init__(parent)
         self.messages = messages
 
         self.setWindowTitle(self.tr("Чат"))
         self.setWindowIcon(QIcon(":/resources/icons/dialog.png"))
+        self.resize(900, 700)
 
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(10, 10, 10, 10)
-        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
 
-        messages_container = QWidget(self)
-        messages_layout = QVBoxLayout(messages_container)
-        messages_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        messages_layout.setSpacing(10)
-        messages_layout.setContentsMargins(10, 10, 10, 10)
+        self.messages_container = QWidget()
+        self.messages_layout = QVBoxLayout(self.messages_container)
+        self.messages_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.messages_layout.setSpacing(12)
+        self.messages_layout.setContentsMargins(40, 30, 40, 30)
 
-        scroll_area.setWidget(messages_container)
+        self.scroll_area.setWidget(self.messages_container)
 
-        main_layout.addWidget(scroll_area)
+        # --- Input Area ---
+        input_container = QWidget()
+        input_container.setStyleSheet("background-color: #1E1E1E; border-top: 1px solid #2A2A2A;")
+        input_layout = QVBoxLayout(input_container)
+        input_layout.setContentsMargins(40, 16, 40, 16)
+        input_layout.setSpacing(10)
 
-        # Добавляем сообщения
-        for message in self.messages:
-            bubble = MessageBubble(message)
+        # Text Field
+        # self.input_text = QTextEdit()
+        # self.input_text.setMaximumHeight(120)
+        # self.input_text.setPlaceholderText(self.tr("Введите ваше сообщение..."))
+        # self.input_text.setAcceptRichText(False)
+        # self.input_text.setStyleSheet("""
+        #     QTextEdit {
+        #         background-color: #252525;
+        #         border: 1px solid #333333;
+        #         border-radius: 12px;
+        #         padding: 10px;
+        #         color: #F0F0F0;
+        #         font-size: 14px;
+        #         selection-background-color: #444;
+        #     }
+        #     QTextEdit:focus {
+        #         border: 1px solid #555555;
+        #     }
+        # """)
+        #
+        # # Buttons layout
+        # btn_layout = QHBoxLayout()
+        # btn_layout.addStretch()
+        #
+        # self.clear_button = QPushButton(self.tr("Очистить"))
+        # self.clear_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        # self.clear_button.setStyleSheet("""
+        #     QPushButton {
+        #         background: transparent;
+        #         color: #888888;
+        #         border: none;
+        #         padding: 6px 12px;
+        #         font-size: 13px;
+        #     }
+        #     QPushButton:hover { color: #FFFFFF; }
+        # """)
+        # self.clear_button.clicked.connect(self.clear_input)
+        #
+        # self.send_button = QPushButton(self.tr("Отправить"))
+        # self.send_button.setDefault(True)
+        # self.send_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        # self.send_button.setFixedSize(100, 36)
+        # self.send_button.setStyleSheet("""
+        #     QPushButton {
+        #         background-color: #3B82F6;
+        #         color: #FFFFFF;
+        #         border: none;
+        #         border-radius: 8px;
+        #         font-weight: bold;
+        #         font-size: 13px;
+        #     }
+        #     QPushButton:hover { background-color: #2563EB; }
+        #     QPushButton:pressed { background-color: #1D4ED8; }
+        # """)
+        # self.send_button.clicked.connect(self.send_message)
+        #
+        # btn_layout.addWidget(self.clear_button)
+        # btn_layout.addWidget(self.send_button)
+        #
+        # input_layout.addWidget(self.input_text)
+        # input_layout.addLayout(btn_layout)
 
-            layout = QHBoxLayout()
-            layout.setContentsMargins(20, 0, 20, 0)
+        # Layout Assembly
+        main_layout.addWidget(self.scroll_area, 1)
+        main_layout.addWidget(input_container, 0)
 
-            if message.role == RoleCode.USER:
-                layout.addStretch()
-                layout.addWidget(bubble)
-            elif message.role == RoleCode.ASSISTANT:
-                layout.addWidget(bubble)
-                layout.addStretch()
-            else:
-                layout.addStretch()
-                layout.addWidget(bubble)
-                layout.addStretch()
+        # Load messages
+        self.setUpdatesEnabled(False)
+        for msg in self.messages:
+            self.add_message_bubble(msg)
+        self.setUpdatesEnabled(True)
 
-            messages_layout.addLayout(layout)
+        QTimer.singleShot(0, self.scroll_to_bottom)
+
+        # Shortcuts
+        # QShortcut(QKeySequence("Ctrl+Return"), self.input_text).activated.connect(self.send_message)
+        # QShortcut(QKeySequence("Esc"), self).activated.connect(self.close)
+
+    def add_message_bubble(self, message: Message):
+        bubble = MessageBubble(message, self)
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        if message.role == RoleCode.USER:
+            layout.addStretch()
+            layout.addWidget(bubble)
+        else:
+            layout.addWidget(bubble)
+            layout.addStretch()
+
+        self.messages_layout.addWidget(container)
+
+    def send_message(self):
+        content = self.input_text.toPlainText().strip()
+        if not content:
+            return
+
+        msg = Message(role=RoleCode.USER, content=content, timestamp=datetime.now())
+        self.messages.append(msg)
+        self.add_message_bubble(msg)
+        self.clear_input()
+        self.message_sent.emit(content)
+        self.scroll_to_bottom()
+
+    def add_assistant_message(self, content: str, reasoning_content: Optional[str] = None):
+        msg = Message(
+            role=RoleCode.ASSISTANT,
+            content=content,
+            reasoning_content=reasoning_content,
+            timestamp=datetime.now()
+        )
+        self.messages.append(msg)
+        self.add_message_bubble(msg)
+        self.scroll_to_bottom()
+
+    def clear_input(self):
+        self.input_text.clear()
+        self.input_text.setFocus()
+
+    def scroll_to_bottom(self):
+        QTimer.singleShot(50, self._perform_scroll)
+
+    def _perform_scroll(self):
+        bar = self.scroll_area.verticalScrollBar()
+        bar.setValue(bar.maximum())

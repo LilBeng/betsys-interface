@@ -424,8 +424,6 @@ class MainWindow(QMainWindow):
         self.console_widget.add_text(text)
 
     def closeEvent(self, event: QCloseEvent) -> None:
-
-        """Перехват события закрытия окна"""
         reply = QMessageBox.question(
             self,
             self.tr("Выход"),
@@ -437,8 +435,6 @@ class MainWindow(QMainWindow):
         if reply == QMessageBox.StandardButton.Yes:
             self._save_config()
             self._service.shutdown_workers()
-
-            event.accept()
 
             ctypes.windll.kernel32.ExitProcess(0)
         else:

@@ -21,9 +21,7 @@ from betsys import (
     get_weekday_name,
     PriorityCode,
     get_priority_name,
-    VarCode,
-    RiskCode,
-    get_risk_name
+    VarCode
 )
 
 from src.dialogs.base import BaseScriptDialog
@@ -68,15 +66,10 @@ class SignalFilterDialog(BaseScriptDialog):
         super().__init__(script, parent, *args, **kwargs)
         self.setWindowTitle(self.tr("Фильтр сигналов"))
 
-        self._min_risk = QCheckBox(self.tr("Риск [Min]:"), self)
         self._min_priority = QCheckBox(self.tr("Приоритет [Min]:"), self)
         self._min_mean_metric_probability = QCheckBox(self.tr("Вероятность метрики [Mean-Min]:"), self)
         self._min_mean_probability = QCheckBox(self.tr("Вероятность исхода [Mean-Min]:"), self)
         self._min_mean_odds = QCheckBox(self.tr("Коэффициент [Mean-Min]:"), self)
-
-        self._min_risk_code = QComboBox(self)
-        for risk_code in RiskCode:
-            self._min_risk_code.addItem(get_risk_name(risk_code, AppLang.code), risk_code)
 
         self._min_priority_code = QComboBox(self)
         for priority_code in PriorityCode:
@@ -104,19 +97,10 @@ class SignalFilterDialog(BaseScriptDialog):
             parent=self
         )
 
-        self._min_risk.checkStateChanged.connect(self.change_min_risk_code)
         self._min_priority.checkStateChanged.connect(self.change_min_priority_code)
         self._min_mean_metric_probability.checkStateChanged.connect(self.change_min_mean_metric_probability_value)
         self._min_mean_probability.checkStateChanged.connect(self.change_min_mean_probability_value)
         self._min_mean_odds.checkStateChanged.connect(self.change_min_mean_odds_value)
-
-        if script.signal_filter.min_risk_code is not None:
-            self._min_risk_code.setCurrentText(get_risk_name(script.signal_filter.min_risk_code, AppLang.code))
-            self._min_risk.setCheckState(Qt.CheckState.Checked)
-            self.change_min_risk_code(Qt.CheckState.Checked)
-        else:
-            self._min_risk.setCheckState(Qt.CheckState.Unchecked)
-            self.change_min_risk_code(Qt.CheckState.Unchecked)
 
         if script.signal_filter.min_priority_code is not None:
             self._min_priority_code.setCurrentText(
@@ -154,20 +138,12 @@ class SignalFilterDialog(BaseScriptDialog):
             self._min_mean_odds.setCheckState(Qt.CheckState.Unchecked)
             self.change_min_mean_odds_value(Qt.CheckState.Unchecked)
 
-        self.central_layout.addRow(self._min_risk, self._min_risk_code)
         self.central_layout.addRow(self._min_priority, self._min_priority_code)
         self.central_layout.addRow(self._min_mean_metric_probability, self._min_mean_metric_probability_value)
         self.central_layout.addRow(self._min_mean_probability, self._min_mean_probability_value)
         self.central_layout.addRow(self._min_mean_odds, self._min_mean_odds_value)
 
         self.setup_wheel_filter(self)
-
-    @Slot()
-    def change_min_risk_code(self, state: Qt.CheckState) -> None:
-        if state == Qt.CheckState.Checked:
-            self._min_risk_code.setEnabled(True)
-        else:
-            self._min_risk_code.setEnabled(False)
 
     @Slot()
     def change_min_priority_code(self, state: Qt.CheckState) -> None:
