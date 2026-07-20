@@ -11,7 +11,7 @@ class ErrorDialog(QDialog):
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setWindowTitle(self.tr("Ошибки"))
         self.setWindowIcon(QIcon(":/resources/icons/console.png"))
-        self.setMinimumSize(600, 300)
+        self.resize(900, 700)
 
         layout = QVBoxLayout(self)
 

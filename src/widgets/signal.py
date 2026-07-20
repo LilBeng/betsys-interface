@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from PySide6.QtCore import Signal as pysideSignal, QPoint, QStandardPaths, QSize, Slot
+from PySide6.QtCore import Signal as pysideSignal, QPoint, QSize, Slot
 from PySide6.QtGui import QIcon, Qt, QPalette
 from PySide6.QtWidgets import (
     QWidget,
@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QVBoxLayout,
     QMenu,
-    QFileDialog,
     QFrame,
     QScrollArea
 )
@@ -30,6 +29,7 @@ from betsys import (
     SportEventDriver,
     get_global_event_status_name
 )
+from qasync import asyncSlot
 
 from src.dialogs.chat import ChatDialog
 from src.dialogs.market import StackedMarketDialog
@@ -55,8 +55,8 @@ class SignalBorder(QFrame):
 
     _show_match_dialog = pysideSignal(DriverCode, MatchDetails)
 
-    def __init__(self, service: SportEventService, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, service: SportEventService, parent: QWidget = Optional[None], *args, **kwargs) -> None:
+        super().__init__(parent=parent, *args, **kwargs)
         self._service = service
 
         main_layout = QVBoxLayout(self)
@@ -109,6 +109,7 @@ class SignalBorder(QFrame):
         widget.delete_signal.connect(self._delete_signal)
         widget.invert_signal.connect(self.invert_signal)
         widget.print_text.connect(self.print_text.emit)
+        widget.print_prompts.connect(self._print_prompts_signal)
         widget.show_update_match.connect(self._get_match)
         widget.run_analyse.connect(self.run_analyse_signal)
         self._signal_layout.addWidget(widget)
@@ -307,6 +308,22 @@ class SignalBorder(QFrame):
         dialog = MatchDetailsDialog(driver_code, [match_details])
         dialog.exec()
 
+    @asyncSlot()
+    async def _print_prompts_signal(self, signal: Signal, match_details: MatchDetails) -> None:
+        self.update_progress.emit(1, 1)
+
+        prompts = await self._service.db_context.prompts.get_prompts(
+            signal.signal_property.bet.bet_code,
+            match_details.match.match_code,
+            signal.signal_property.signal_type_code
+        )
+
+        for index, model in enumerate(prompts, start=1):
+            prompt = model.generate_prompt(match_details, signal, AppLang.code)
+            self.print_text.emit(f"#{index}\n{prompt}")
+
+            self.update_progress.emit(index, len(prompts))
+
 
 class SignalWidget(QFrame):
     """
@@ -316,6 +333,7 @@ class SignalWidget(QFrame):
     invert_signal = pysideSignal(str, DriverCode)
 
     print_text = pysideSignal(str)
+    print_prompts = pysideSignal(Signal, MatchDetails)
     run_analyse = pysideSignal(str, DriverCode)
     show_update_match = pysideSignal(str, DriverCode)
 
@@ -430,9 +448,9 @@ class SignalWidget(QFrame):
     def show_context_menu(self, position: QPoint) -> None:
         menu = QMenu(self)
 
-        screen = menu.addAction(QIcon(":/resources/icons/screen.png"), self.tr("Сохранить карточку"))
         delete = menu.addAction(QIcon(":/resources/icons/delete.png"), self.tr("Удалить"))
-        print_data = menu.addAction(QIcon(":/resources/icons/console.png"), self.tr("Вывести в консоль"))
+        print_data = menu.addAction(QIcon(":/resources/icons/console.png"), self.tr("Вывести сигнал в консоль"))
+        menu.addSeparator()
         show_match = menu.addAction(QIcon(":/resources/icons/info.png"), self.tr("Показать матч"))
         show_market = menu.addAction(QIcon(":/resources/icons/info.png"), self.tr("Показать коэффициенты"))
         if self._signal.is_active:
@@ -445,10 +463,13 @@ class SignalWidget(QFrame):
         run_assistant = menu.addAction(QIcon(":/resources/icons/run.png"), self.tr("Запустить анализ ИИ"))
         run_assistant.triggered.connect(self._run_analyse)
 
+        print_prompts = menu.addAction(QIcon(":/resources/icons/console.png"), self.tr("Вывести запросы в консоль"))
+        print_prompts.triggered.connect(self._print_prompts)
+
+        menu.addSeparator()
         show_dialog = menu.addAction(QIcon(":/resources/icons/dialog.png"), self.tr("Показать чат"))
         show_dialog.triggered.connect(self._show_dialog)
 
-        screen.triggered.connect(self._save_screen)
         delete.triggered.connect(self._delete)
         print_data.triggered.connect(self._print_data)
         show_match.triggered.connect(self._show_match)
@@ -469,6 +490,10 @@ class SignalWidget(QFrame):
         self.print_text.emit(f"{self.text}")
 
     @Slot()
+    def _print_prompts(self) -> None:
+        self.print_prompts.emit(self._signal, self._match_details)
+
+    @Slot()
     def _show_match(self) -> None:
         if self._match_details.match.match_summary.match_status_code == MatchStatusCode.COMPLETED:
             dialog = MatchDetailsDialog(self._driver_code, [self._match_details], self)
@@ -480,23 +505,6 @@ class SignalWidget(QFrame):
     def _show_market(self) -> None:
         dialog = StackedMarketDialog([self._match_details], self)
         dialog.exec()
-
-    @Slot()
-    def _save_screen(self) -> None:
-        file_path, selected_filter = QFileDialog.getSaveFileName(
-            self,
-            self.tr("Сохранить изображение"),
-            QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation),
-            "PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;BMP Image (*.bmp);;All Files (*)"
-        )
-
-        if file_path:
-            pixmap = self.grab()
-
-            try:
-                pixmap.save(file_path)
-            except Exception as exception:
-                _logger.exception(exception)
 
     @Slot()
     def _show_dialog(self) -> None:
