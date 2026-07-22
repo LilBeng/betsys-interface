@@ -2,7 +2,7 @@ from typing import Any, Optional
 
 from PySide6.QtCore import Signal, Slot, QSize, Qt
 from PySide6.QtGui import QIcon, QScreen
-from PySide6.QtWidgets import QDialog, QApplication, QStatusBar, QProgressBar, QVBoxLayout, QToolBar, QWidget
+from PySide6.QtWidgets import QDialog, QApplication, QStatusBar, QProgressBar, QVBoxLayout, QToolBar, QWidget, QSplitter
 from betsys import DBContext, LeagueDBModel, ScriptDBModel, AIPromptDBModel, MatchDetailsDBModel
 
 
@@ -44,7 +44,13 @@ class BaseDAODialog(QDialog):
         self.toolbar = QToolBar(iconSize=QSize(35, 35), parent=self)
 
         self.central_layout = QVBoxLayout()
-        self.central_layout.addWidget(self.central_widget)
+
+        self.splitter = QSplitter(Qt.Orientation.Vertical)
+        self.splitter.setChildrenCollapsible(False)
+
+        self.splitter.addWidget(self.central_widget)
+
+        self.central_layout.addWidget(self.splitter)
 
         layout = QVBoxLayout(self)
         layout.addWidget(self.toolbar)

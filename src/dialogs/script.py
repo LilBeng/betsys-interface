@@ -81,7 +81,8 @@ class ScriptDAODialog(BaseDAODialog):
         self._search_input.textChanged.connect(self.on_search)
 
         self.central_layout.addWidget(self._search_input)
-        self.central_layout.addWidget(self.tab_widget, alignment=Qt.AlignmentFlag.AlignBottom)
+
+        self.splitter.addWidget(self.tab_widget)
 
         self.central_widget.cellDoubleClicked.connect(self.edit_models)
 

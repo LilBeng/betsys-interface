@@ -11,7 +11,8 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
     QSpinBox,
-    QGroupBox
+    QGroupBox,
+    QLayout
 )
 from betsys import (
     ScriptDBModel,
@@ -28,7 +29,8 @@ from betsys import (
     MatchCode,
     get_match_name,
     SignalTypeCode,
-    get_signal_type_name, get_total_bet_name
+    get_signal_type_name,
+    get_total_bet_name
 )
 
 from src.dialogs.property import PromptDialog
@@ -98,12 +100,11 @@ class ScriptEditorWidget(QWidget):
         self._property = PropertyGroupBox(self._script)
         self._filter = FilterGroupBox(self._script)
         self._description = DescriptionGroupBox(self._script)
-        self._description.setFixedHeight(165)
 
         box_layout = QHBoxLayout()
-        box_layout.addWidget(self._data)
-        box_layout.addWidget(self._property)
-        box_layout.addWidget(self._filter)
+        box_layout.addWidget(self._data, alignment=Qt.AlignmentFlag.AlignTop)
+        box_layout.addWidget(self._property, alignment=Qt.AlignmentFlag.AlignTop)
+        box_layout.addWidget(self._filter, alignment=Qt.AlignmentFlag.AlignTop)
         box_layout.addWidget(self._description)
 
         layout = QVBoxLayout(self)
@@ -181,6 +182,7 @@ class PromptEditorWidget(QWidget):
         self._config.clicked.connect(self.show_dialog)
 
         param_layout = QFormLayout()
+        param_layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
         param_layout.setVerticalSpacing(15)
         param_layout.setHorizontalSpacing(15)
         param_layout.addRow(self.tr("Тип матча:"), self._match_code)
@@ -200,7 +202,7 @@ class PromptEditorWidget(QWidget):
         text.setLayout(text_layout)
 
         central_layout = QHBoxLayout()
-        central_layout.addWidget(param)
+        central_layout.addWidget(param, alignment=Qt.AlignmentFlag.AlignTop)
         central_layout.addWidget(text)
 
         layout = QVBoxLayout(self)
