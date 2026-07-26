@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QPlainTextEdit, QVBoxLayout, QWidget, QFileDialog
 from PySide6.QtWidgets import QToolBar
 from betsys import DriverCode, CheckPoint, BetSysModel
 
-from src.utils.service import SportEventService
+from src.utils.service import BetSysService
 
 _logger = logging.getLogger(__name__)
 
@@ -108,10 +108,8 @@ class ConsoleWidget(QWidget):
     _add_text = pysideSignal(str)
     _get_checkpoint_object = pysideSignal(DriverCode, str, str)
 
-    def __init__(self, service: SportEventService, *args, **kwargs) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self._service = service
-
         self._commands = [
             "clear",
             "<football, hockey, volleyball>/get_match_ids",
@@ -173,7 +171,7 @@ class ConsoleWidget(QWidget):
             else:
                 self._add_text.emit(self.tr("Объект не найден"))
         if arg:
-            self._service.get_object(
+            BetSysService.service.get_object(
                 _print_text,
                 driver_code,
                 CheckPoint.__name__,
@@ -181,7 +179,7 @@ class ConsoleWidget(QWidget):
                 arg
             )
         else:
-            self._service.get_object(
+            BetSysService.service.get_object(
                 _print_text,
                 driver_code,
                 CheckPoint.__name__,

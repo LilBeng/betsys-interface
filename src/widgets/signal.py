@@ -31,14 +31,14 @@ from betsys import (
 )
 from qasync import asyncSlot
 
-from src.dialogs.chat import ChatDialog
+from src.dialogs.chat import MessageViewer
 from src.dialogs.market import StackedMarketDialog
 from src.dialogs.match import MatchDetailsDialog
 from src.layouts.flow import FlowLayout
 from src.utils.blocker import WheelBlocker
 from src.utils.color import GREEN, RED, BLUE, YELLOW, GRAPHITE
 from src.utils.lang import AppLang
-from src.utils.service import SportEventService
+from src.utils.service import BetSysService
 from src.widgets.color import ColorWidget
 
 _logger = logging.getLogger(__name__)
@@ -55,10 +55,8 @@ class SignalBorder(QFrame):
 
     _show_match_dialog = pysideSignal(DriverCode, MatchDetails)
 
-    def __init__(self, service: SportEventService, parent: QWidget = Optional[None], *args, **kwargs) -> None:
+    def __init__(self, parent: QWidget = Optional[None], *args, **kwargs) -> None:
         super().__init__(parent=parent, *args, **kwargs)
-        self._service = service
-
         main_layout = QVBoxLayout(self)
 
         scroll_area = QScrollArea()
@@ -162,7 +160,7 @@ class SignalBorder(QFrame):
 
     @Slot()
     def _delete_signal(self, signal_id: str, driver_code: DriverCode) -> None:
-        self._service.remove_signal(signal_id, driver_code)
+        BetSysService.service.remove_signal(signal_id, driver_code)
 
         for index in range(self._signal_layout.count()):
             item = self._signal_layout.itemAt(index)
@@ -215,7 +213,7 @@ class SignalBorder(QFrame):
 
     @Slot()
     def remove_finished_signals(self) -> None:
-        self._service.fing_signal_ids(self._remove_non_active_signals)
+        BetSysService.service.fing_signal_ids(self._remove_non_active_signals)
 
     @Slot()
     def print_signals(self) -> None:
@@ -237,7 +235,7 @@ class SignalBorder(QFrame):
             else:
                 self.show_message.emit(self.tr("Не удалось инвертировать сигнал (id={})").format(signal_id))
 
-        self._service.get_object(
+        BetSysService.service.get_object(
             _check,
             driver_code,
             SportEventDriver.__name__,
@@ -253,11 +251,11 @@ class SignalBorder(QFrame):
             else:
                 self.show_message.emit(self.tr("Не удалось проанализировать сигнал (id={})").format(signal_id))
 
-        self._service.get_object(
+        BetSysService.service.get_object(
             _check,
             driver_code,
             SportEventDriver.__name__,
-            SportEventDriver.generate_assistant_response.__name__,
+            SportEventDriver.generate_assistant_messages.__name__,
             signal_id
         )
 
@@ -295,7 +293,7 @@ class SignalBorder(QFrame):
         def _show_dialog(match_details: MatchDetails) -> None:
             self._show_match_dialog.emit(driver_code, match_details)
 
-        self._service.get_object(
+        BetSysService.service.get_object(
             _show_dialog,
             driver_code,
             CheckPoint.__name__,
@@ -312,7 +310,7 @@ class SignalBorder(QFrame):
     async def _print_prompts_signal(self, signal: Signal, match_details: MatchDetails) -> None:
         self.update_progress.emit(1, 1)
 
-        prompts = await self._service.db_context.prompts.get_prompts(
+        prompts = await BetSysService.service.db_context.prompts.get_prompts(
             signal.signal_property.bet.bet_code,
             match_details.match.match_code,
             signal.signal_property.signal_type_code
@@ -451,7 +449,7 @@ class SignalWidget(QFrame):
         delete = menu.addAction(QIcon(":/resources/icons/delete.png"), self.tr("Удалить"))
         print_data = menu.addAction(QIcon(":/resources/icons/console.png"), self.tr("Вывести сигнал в консоль"))
         menu.addSeparator()
-        show_match = menu.addAction(QIcon(":/resources/icons/info.png"), self.tr("Показать матч"))
+        show_match = menu.addAction(QIcon(":/resources/icons/info.png"), self.tr("Показать информацию о матче"))
         show_market = menu.addAction(QIcon(":/resources/icons/info.png"), self.tr("Показать коэффициенты"))
         if self._signal.is_active:
             menu.addSeparator()
@@ -467,8 +465,8 @@ class SignalWidget(QFrame):
         print_prompts.triggered.connect(self._print_prompts)
 
         menu.addSeparator()
-        show_dialog = menu.addAction(QIcon(":/resources/icons/dialog.png"), self.tr("Показать чат"))
-        show_dialog.triggered.connect(self._show_dialog)
+        show_message = menu.addAction(QIcon(":/resources/icons/dialog.png"), self.tr("Показать сообщения"))
+        show_message.triggered.connect(self._show_dialog)
 
         delete.triggered.connect(self._delete)
         print_data.triggered.connect(self._print_data)
@@ -508,7 +506,7 @@ class SignalWidget(QFrame):
 
     @Slot()
     def _show_dialog(self) -> None:
-        dialog = ChatDialog(self._signal.messages, parent=self)
+        dialog = MessageViewer(self._signal, self._driver_code, parent=self)
         dialog.exec()
 
     @Slot()

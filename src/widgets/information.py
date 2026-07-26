@@ -17,7 +17,7 @@ from src.dialogs.information import InformationDialog
 from src.dialogs.market import StackedMarketDialog
 from src.dialogs.match import MatchDetailsDialog
 from src.utils.lang import AppLang
-from src.utils.service import SportEventService
+from src.utils.service import BetSysService, SportEventService
 from src.utils.tree import tree_str
 from src.widgets.table import MatchTableWidget
 
@@ -31,13 +31,11 @@ class InformationWidget(QFrame):
 
     def __init__(
             self,
-            service: SportEventService,
             driver_code: DriverCode,
             *args,
             **kwargs
     ) -> None:
         super().__init__(*args, **kwargs)
-        self._service = service
         self._driver_code = driver_code
 
         self._update_table = QAction(
@@ -116,7 +114,7 @@ class InformationWidget(QFrame):
             else:
                 self.show_message.emit(self.tr("Информация не получена"))
 
-        self._service.get_object(
+        BetSysService.service.get_object(
             _show_info,
             self.driver_code,
             SportEventDriver.__name__,
@@ -129,7 +127,7 @@ class InformationWidget(QFrame):
             if match_details:
                 self._table.set_items(match_details.values()) # noqa
 
-        self._service.get_object(
+        BetSysService.service.get_object(
             _update_table,
             self.driver_code,
             CheckPoint.__name__,
@@ -148,7 +146,7 @@ class InformationWidget(QFrame):
 
             self.show_message.emit(self.tr("Операция выполнена"))
 
-        self._service.get_object(
+        BetSysService.service.get_object(
             _print_info,
             self.driver_code,
             CheckPoint.__name__,
@@ -209,7 +207,7 @@ class InformationWidget(QFrame):
             self.tr("Файлы контрольной точки (*.cp)")
         )
         if file_path:
-            self._service.save_checkpoint(file_path, self._driver_code)
+            BetSysService.service.save_checkpoint(file_path, self._driver_code)
 
     @Slot()
     def show_match(self) -> None:

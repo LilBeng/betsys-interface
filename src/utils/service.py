@@ -29,6 +29,7 @@ from src.dialogs.script import ScriptDAODialog
 from src.dialogs.signal import SignalDAODialog
 from src.dialogs.transfer import TransferDialog
 from src.utils.cache import DataCache
+from src.utils.decorators import singleton
 from src.utils.lang import AppLang
 from src.utils.worker import Worker
 from src.worker.code import StatusCode
@@ -674,3 +675,8 @@ class SportEventService(QObject):
     def show_prompts_dialog(self) -> None:
         dialog = PromptDAODialog(self.db_context, parent=self.parent())
         dialog.exec()
+
+
+@singleton
+class BetSysService(object):
+    service: SportEventService

@@ -29,7 +29,7 @@ from src import ERRORS, DISPLAY
 from src.utils.button import create_icon_push_button
 from src.utils.cache import DataCache
 from src.utils.lang import AppLang
-from src.utils.service import SportEventService
+from src.utils.service import SportEventService, BetSysService
 from src.utils.worker import Worker
 from src.widgets.console import ConsoleWidget
 from src.widgets.driver import DriverToolBar
@@ -95,12 +95,12 @@ class MainWindow(QMainWindow):
 
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.log_dock)
 
-        self._service = SportEventService(db_context, multi_driver_config, parent=self)
-        self._service.status_message.connect(self.show_message)
-        self._service.update_progress.connect(self.sync_update_progress)
+        BetSysService.service = SportEventService(db_context, multi_driver_config, parent=self)
+        BetSysService.service.status_message.connect(self.show_message)
+        BetSysService.service.update_progress.connect(self.sync_update_progress)
 
         if not only_database:
-            self.console_widget = ConsoleWidget(self._service, parent=self)
+            self.console_widget = ConsoleWidget(parent=self)
             self.console_widget.show_message.connect(self.show_message)
 
             self.console_dock = QDockWidget(self.tr("Консоль"), self)
@@ -242,22 +242,22 @@ class MainWindow(QMainWindow):
 
         if not only_database:
             self.driver_tool_bar.football_run.triggered.connect(
-                partial(self._service.run, DriverCode.FOOTBALL, False)
+                partial(BetSysService.service.run, DriverCode.FOOTBALL, False)
             )
             self.driver_tool_bar.hockey_run.triggered.connect(
-                partial(self._service.run, DriverCode.HOCKEY, False)
+                partial(BetSysService.service.run, DriverCode.HOCKEY, False)
             )
             self.driver_tool_bar.volleyball_run.triggered.connect(
-                partial(self._service.run, DriverCode.VOLLEYBALL, False)
+                partial(BetSysService.service.run, DriverCode.VOLLEYBALL, False)
             )
             self.driver_tool_bar.football_run_with_checkpoint.triggered.connect(
-                partial(self._service.run, DriverCode.FOOTBALL, True)
+                partial(BetSysService.service.run, DriverCode.FOOTBALL, True)
             )
             self.driver_tool_bar.hockey_run_with_checkpoint.triggered.connect(
-                partial(self._service.run, DriverCode.HOCKEY, True)
+                partial(BetSysService.service.run, DriverCode.HOCKEY, True)
             )
             self.driver_tool_bar.volleyball_run_with_checkpoint.triggered.connect(
-                partial(self._service.run, DriverCode.VOLLEYBALL, True)
+                partial(BetSysService.service.run, DriverCode.VOLLEYBALL, True)
             )
             self.driver_tool_bar.football_stop.triggered.connect(
                 partial(self.stop_driver, DriverCode.FOOTBALL, False)
@@ -287,50 +287,50 @@ class MainWindow(QMainWindow):
                 partial(self.show_information, DriverCode.VOLLEYBALL)
             )
             self.driver_tool_bar.football_update_scripts.triggered.connect(
-                partial(self._service.update_data, DriverCode.FOOTBALL, True)
+                partial(BetSysService.service.update_data, DriverCode.FOOTBALL, True)
             )
             self.driver_tool_bar.hockey_update_scripts.triggered.connect(
-                partial(self._service.update_data, DriverCode.HOCKEY, True)
+                partial(BetSysService.service.update_data, DriverCode.HOCKEY, True)
             )
             self.driver_tool_bar.volleyball_update_scripts.triggered.connect(
-                partial(self._service.update_data, DriverCode.VOLLEYBALL, True)
+                partial(BetSysService.service.update_data, DriverCode.VOLLEYBALL, True)
             )
             self.driver_tool_bar.football_update_leagues.triggered.connect(
-                partial(self._service.update_data, DriverCode.FOOTBALL, False)
+                partial(BetSysService.service.update_data, DriverCode.FOOTBALL, False)
             )
             self.driver_tool_bar.hockey_update_leagues.triggered.connect(
-                partial(self._service.update_data, DriverCode.HOCKEY, False)
+                partial(BetSysService.service.update_data, DriverCode.HOCKEY, False)
             )
             self.driver_tool_bar.volleyball_update_leagues.triggered.connect(
-                partial(self._service.update_data, DriverCode.VOLLEYBALL, False)
+                partial(BetSysService.service.update_data, DriverCode.VOLLEYBALL, False)
             )
             self.driver_tool_bar.football_config.triggered.connect(
-                partial(self._service.edit_driver_config, DriverCode.FOOTBALL)
+                partial(BetSysService.service.edit_driver_config, DriverCode.FOOTBALL)
             )
             self.driver_tool_bar.hockey_config.triggered.connect(
-                partial(self._service.edit_driver_config, DriverCode.HOCKEY)
+                partial(BetSysService.service.edit_driver_config, DriverCode.HOCKEY)
             )
             self.driver_tool_bar.volleyball_config.triggered.connect(
-                partial(self._service.edit_driver_config, DriverCode.VOLLEYBALL)
+                partial(BetSysService.service.edit_driver_config, DriverCode.VOLLEYBALL)
             )
 
         self.driver_tool_bar.football_download.triggered.connect(
-            partial(self._service.download_leagues, DriverCode.FOOTBALL)
+            partial(BetSysService.service.download_leagues, DriverCode.FOOTBALL)
         )
         self.driver_tool_bar.hockey_download.triggered.connect(
-            partial(self._service.download_leagues, DriverCode.HOCKEY)
+            partial(BetSysService.service.download_leagues, DriverCode.HOCKEY)
         )
         self.driver_tool_bar.volleyball_download.triggered.connect(
-            partial(self._service.download_leagues, DriverCode.VOLLEYBALL)
+            partial(BetSysService.service.download_leagues, DriverCode.VOLLEYBALL)
         )
 
-        self.driver_tool_bar.config_dao.triggered.connect(self._service.edit_dao_config)
-        self.driver_tool_bar.transfer_dao.triggered.connect(self._service.show_transfer_dao)
-        self.driver_tool_bar.script_dao.triggered.connect(self._service.show_scripts_dialog)
-        self.driver_tool_bar.league_dao.triggered.connect(self._service.show_leagues_dialog)
-        self.driver_tool_bar.match_details_dao.triggered.connect(self._service.show_matches_dialog)
-        self.driver_tool_bar.signal_dao.triggered.connect(self._service.show_signals_dialog)
-        self.driver_tool_bar.ai_prompt_dao.triggered.connect(self._service.show_prompts_dialog)
+        self.driver_tool_bar.config_dao.triggered.connect(BetSysService.service.edit_dao_config)
+        self.driver_tool_bar.transfer_dao.triggered.connect(BetSysService.service.show_transfer_dao)
+        self.driver_tool_bar.script_dao.triggered.connect(BetSysService.service.show_scripts_dialog)
+        self.driver_tool_bar.league_dao.triggered.connect(BetSysService.service.show_leagues_dialog)
+        self.driver_tool_bar.match_details_dao.triggered.connect(BetSysService.service.show_matches_dialog)
+        self.driver_tool_bar.signal_dao.triggered.connect(BetSysService.service.show_signals_dialog)
+        self.driver_tool_bar.ai_prompt_dao.triggered.connect(BetSysService.service.show_prompts_dialog)
 
         if not only_database:
             self._tab_widget = QTabWidget(self)
@@ -342,14 +342,14 @@ class MainWindow(QMainWindow):
 
             self._tab_widget.tabCloseRequested.connect(self.close_tab)
 
-            self._signal_border = SignalBorder(self._service, self)
+            self._signal_border = SignalBorder(self)
             self._signal_border.update_progress.connect(self.sync_update_progress)
             self._signal_border.show_message.connect(self.show_message)
             self._signal_border.print_text.connect(self.print_text)
             self._signal_border.customContextMenuRequested.connect(self.show_context_menu)
             self._signal_border.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 
-            self._service.event.connect(self._signal_border.event.emit)
+            BetSysService.service.event.connect(self._signal_border.event.emit)
 
             self.driver_tool_bar.remove_finished_signals.triggered.connect(self._signal_border.remove_finished_signals)
             self.driver_tool_bar.print_signals.triggered.connect(self._signal_border.print_signals)
@@ -434,7 +434,7 @@ class MainWindow(QMainWindow):
 
         if reply == QMessageBox.StandardButton.Yes:
             self._save_config()
-            self._service.shutdown_workers()
+            BetSysService.service.shutdown_workers()
 
             ctypes.windll.kernel32.ExitProcess(0)
         else:
@@ -509,7 +509,7 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def show_information(self, driver_code: DriverCode) -> None:
-        if self._service.workers.get(driver_code):
+        if BetSysService.service.workers.get(driver_code):
             for index in range(self._tab_widget.count()):
                 widget = self._tab_widget.widget(index)
                 if isinstance(widget, InformationWidget):
@@ -536,7 +536,7 @@ class MainWindow(QMainWindow):
             DriverCode.HOCKEY: QIcon(":/resources/icons/hockey.png"),
             DriverCode.VOLLEYBALL: QIcon(":/resources/icons/volleyball.png")
         }
-        widget = InformationWidget(self._service, driver_code)
+        widget = InformationWidget(driver_code)
         widget.print_text.connect(self.print_text)
         widget.show_message.connect(self.show_message)
         widget.update_progress.connect(self.sync_update_progress)
@@ -551,7 +551,7 @@ class MainWindow(QMainWindow):
                 if widget.driver_code == driver_code:
                     self.close_tab(index)
 
-        self._service.stop(driver_code, is_checkpoint)
+        BetSysService.service.stop(driver_code, is_checkpoint)
 
     @Slot()
     def close_tab(self, index: int) -> None:
@@ -561,10 +561,10 @@ class MainWindow(QMainWindow):
 
     def _clear_cache(self) -> None:
         def _clear():
-            self._service.update_progress.emit(-1, -1, None)
+            BetSysService.service.update_progress.emit(-1, -1, None)
             cache = DataCache()
             cache.clear()
             self.show_message(self.tr("Память очищена"))
-            self._service.update_progress.emit(1, 1, None)
+            BetSysService.service.update_progress.emit(1, 1, None)
 
         self._worker.start(None, _clear)
