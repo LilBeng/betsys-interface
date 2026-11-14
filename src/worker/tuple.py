@@ -40,7 +40,7 @@ class WorkerResponse:
 class SignalResponse:
     sender: str
     event_code: EventCode
-    signal: Signal
+    signal: Optional[Signal]
     details: MatchDetails
     driver_code: DriverCode
 

@@ -3,7 +3,7 @@ from typing import Any, Optional
 from PySide6.QtCore import Signal, Slot, QSize, Qt
 from PySide6.QtGui import QIcon, QScreen
 from PySide6.QtWidgets import QDialog, QApplication, QStatusBar, QProgressBar, QVBoxLayout, QToolBar, QWidget, QSplitter
-from betsys import DBContext, LeagueDBModel, ScriptDBModel, AIPromptDBModel, MatchDetailsDBModel
+from betsys import DBContext, LeagueDBModel, ScriptDBModel, AIPromptDBModel, MatchDetailsDBModel, MatchFilterDBModel
 
 
 class BaseDAODialog(QDialog):
@@ -82,49 +82,31 @@ class BaseDAODialog(QDialog):
         for action in self.toolbar.actions():
             action.setEnabled(flag)
 
-    async def get_leagues(self, batch_size: int = 50) -> list[LeagueDBModel]:
-        total = await self.db_context.leagues.get_count()
-        leagues = []
+    async def _get(self, db_table: Any, batch_size: int = 50) -> Any:
+        total = await db_table.get_count()
+        objects = []
 
         if total:
-            async for batch in self.db_context.leagues.get_batch(batch_size):
-                leagues.extend(batch)
-                self.update_progress.emit(len(leagues), total)
+            async for batch in db_table.get_batch(batch_size):
+                objects.extend(batch)
+                self.update_progress.emit(len(objects), total)
 
-        return leagues
+        return objects
+
+    async def get_leagues(self, batch_size: int = 50) -> list[LeagueDBModel]:
+        return await self._get(self.db_context.leagues, batch_size)
 
     async def get_scripts(self, batch_size: int = 10) -> list[ScriptDBModel]:
-        total = await self.db_context.scripts.get_count()
-        scripts = []
-
-        if total:
-            async for batch in self.db_context.scripts.get_batch(batch_size):
-                scripts.extend(batch)
-                self.update_progress.emit(len(scripts), total)
-
-        return scripts
+        return await self._get(self.db_context.scripts, batch_size)
 
     async def get_prompts(self, batch_size: int = 10) -> list[AIPromptDBModel]:
-        total = await self.db_context.prompts.get_count()
-        prompts = []
+        return await self._get(self.db_context.prompts, batch_size)
 
-        if total:
-            async for batch in self.db_context.prompts.get_batch(batch_size):
-                prompts.extend(batch)
-                self.update_progress.emit(len(prompts), total)
-
-        return prompts
+    async def get_filters(self, batch_size: int = 10) -> list[MatchFilterDBModel]:
+        return await self._get(self.db_context.filters, batch_size)
 
     async def get_matches(self, batch_size: int = 50) -> list[MatchDetailsDBModel]:
-        total = await self.db_context.details.get_count()
-        matches = []
-
-        if total:
-            async for batch in self.db_context.details.get_batch(batch_size):
-                matches.extend(batch)
-                self.update_progress.emit(len(matches), total)
-
-        return matches
+        return await self._get(self.db_context.details, batch_size)
 
     @Slot()
     def _update_progress(self, value: int, max_value: int) -> None:

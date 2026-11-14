@@ -1,5 +1,5 @@
 from PySide6.QtCore import Slot
-from PySide6.QtWidgets import QWidget, QFormLayout, QLabel, QComboBox, QGroupBox
+from PySide6.QtWidgets import QWidget, QFormLayout, QLabel, QComboBox, QGroupBox, QSizePolicy
 from betsys import (
     MatchDetails,
     get_match_status_name,
@@ -38,6 +38,8 @@ class MatchDetailsWidget(QWidget):
         layout = QFormLayout(self, horizontalSpacing=40, verticalSpacing=20)
 
         data = QGroupBox(self.tr("Общие данные"), self)
+        data.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+
         layout.addRow(data)
 
         data_layout = QFormLayout(data, horizontalSpacing=10, verticalSpacing=10)
@@ -72,6 +74,8 @@ class MatchDetailsWidget(QWidget):
             self._score_statistic.horizontalHeader().setMinimumSectionSize(150)
 
             score_statistic = QGroupBox(self.tr("Время счета"), self)
+            score_statistic.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+
             layout.addRow(score_statistic)
 
             score_statistic_layout = QFormLayout(score_statistic, horizontalSpacing=10, verticalSpacing=10)
@@ -108,6 +112,8 @@ class MatchDetailsWidget(QWidget):
                 self._statistic_box.setCurrentText(get_event_status_name(VEventStatusCode.FULL_TIME, AppLang.code))
 
             statistic = QGroupBox(self.tr("Статистика"), self)
+            statistic.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+
             layout.addRow(statistic)
 
             statistic_layout = QFormLayout(statistic, horizontalSpacing=10, verticalSpacing=10)
@@ -126,6 +132,8 @@ class MatchDetailsWidget(QWidget):
                 self._table_box.addItem(get_game_name(game_code, AppLang.code), game_code)
 
             table = QGroupBox(self.tr("Турнирная таблица"), self)
+            table.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+
             layout.addRow(table)
 
             table_layout = QFormLayout(table, horizontalSpacing=10, verticalSpacing=10)
@@ -160,6 +168,8 @@ class MatchDetailsWidget(QWidget):
                 self._encounter_box.addItem(get_encounter_name(encounter_code, AppLang.code), encounter_code)
 
             h2h = QGroupBox(self.tr("H2H"), self)
+            h2h.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+
             layout.addRow(h2h)
 
             h2h_layout = QFormLayout(h2h, horizontalSpacing=10, verticalSpacing=10)
@@ -191,6 +201,8 @@ class MatchDetailsWidget(QWidget):
                 self._players_type_box.addItem(get_players_name(player_code, AppLang.code), player_code)
 
             players = QGroupBox(self.tr("Составы"), self)
+            players.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+
             layout.addRow(players)
 
             players_layout = QFormLayout(players, horizontalSpacing=10, verticalSpacing=10)

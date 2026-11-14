@@ -3,7 +3,7 @@ from typing import Optional
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QDialog, QFormLayout, QLayout, QWidget, QDialogButtonBox
-from betsys import Script, VARIABLE_TYPE, get_variable_name
+from betsys import VARIABLE_TYPE, get_variable_name
 
 from src.utils.blocker import WheelBlocker
 from src.utils.lang import AppLang
@@ -42,12 +42,6 @@ class BaseButtonDialog(BaseDialog):
         self.main_layout.setSpacing(10)
         self.main_layout.addRow(self.central_layout)
         self.main_layout.addRow(self._buttons)
-
-
-class BaseScriptDialog(BaseButtonDialog):
-    def __init__(self, script: Script, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
-        super().__init__(parent, *args, **kwargs)
-        self._script = script
 
 
 class BaseVarDialog(BaseButtonDialog):

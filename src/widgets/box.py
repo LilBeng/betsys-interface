@@ -6,11 +6,12 @@ from PySide6.QtWidgets import (
     QComboBox,
     QTextEdit,
     QFormLayout,
+    QHBoxLayout,
 )
 from betsys import Script, MatchCode, get_match_name
 
-from src.dialogs.filter import WeekdayFilterDialog, SignalFilterDialog, MatchFilterDialog
-from src.dialogs.property import MetricPropertyDialog, LeaguePropertyDialog, BetPropertyDialog
+from src.dialogs.filters import WeekdayFilterDialog, SignalFilterDialog, MatchFilterDialog
+from src.dialogs.property import LeaguePropertyDialog, BetPropertyDialog
 from src.utils.button import create_icon_push_button
 from src.utils.lang import AppLang
 from src.widgets.switch import Switch
@@ -68,50 +69,17 @@ class PropertyGroupBox(QGroupBox):
             parent=self
         )
 
+        self._weekday_filter = create_icon_push_button(
+            icon=QIcon(":/resources/icons/config.png"),
+            tooltip=self.tr("Конфигурация"),
+            parent=self
+        )
+
         self._league_property = create_icon_push_button(
             icon=QIcon(":/resources/icons/config.png"),
             tooltip=self.tr("Конфигурация"),
             parent=self
         )
-
-        self._metric_property = create_icon_push_button(
-            icon=QIcon(":/resources/icons/config.png"),
-            tooltip=self.tr("Конфигурация"),
-            parent=self
-        )
-
-        layout = QFormLayout(self)
-        layout.setSpacing(10)
-        layout.addRow(self.tr("Сигнал:"), self._signal_property)
-        layout.addRow(self.tr("Лиги:"), self._league_property)
-        layout.addRow(self.tr("Метрика:"), self._metric_property)
-
-        self._signal_property.clicked.connect(self.show_signal_property)
-        self._league_property.clicked.connect(self.show_league_property)
-        self._metric_property.clicked.connect(self.show_metric_property)
-
-    @Slot()
-    def show_metric_property(self) -> None:
-        dialog = MetricPropertyDialog(self._script, self)
-        dialog.exec()
-
-    @Slot()
-    def show_league_property(self) -> None:
-        dialog = LeaguePropertyDialog(self._script, self)
-        dialog.exec()
-
-    @Slot()
-    def show_signal_property(self) -> None:
-        dialog = BetPropertyDialog(self._script, self)
-        dialog.exec()
-
-
-class FilterGroupBox(QGroupBox):
-    def __init__(self, script: Script, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self._script = script
-
-        self.setTitle(self.tr("Фильтры"))
 
         self._match_filter = create_icon_push_button(
             icon=QIcon(":/resources/icons/config.png"),
@@ -125,35 +93,52 @@ class FilterGroupBox(QGroupBox):
             parent=self
         )
 
-        self._weekday_filter = create_icon_push_button(
-            icon=QIcon(":/resources/icons/config.png"),
-            tooltip=self.tr("Конфигурация"),
-            parent=self
-        )
-
+        self._signal_property.clicked.connect(self.show_signal_property)
+        self._league_property.clicked.connect(self.show_league_property)
         self._match_filter.clicked.connect(self.show_match_filter)
         self._signal_filter.clicked.connect(self.show_signal_filter)
         self._weekday_filter.clicked.connect(self.show_weekday_filter)
 
-        layout = QFormLayout(self)
-        layout.setSpacing(10)
-        layout.addRow(self.tr("Матчи:"), self._match_filter)
-        layout.addRow(self.tr("Сигналы:"), self._signal_filter)
-        layout.addRow(self.tr("Дни недели:"), self._weekday_filter)
+        left_layout = QFormLayout()
+        left_layout.setSpacing(10)
+        left_layout.addRow(self.tr("Дни недели:"), self._weekday_filter)
+        left_layout.addRow(self.tr("Параметры сигнала:"), self._signal_property)
+        left_layout.addRow(self.tr("Фильтр сигналов:"), self._signal_filter)
+
+        right_layout = QFormLayout()
+        right_layout.setSpacing(10)
+        right_layout.addRow(self.tr("Фильтр матчей:"), self._match_filter)
+        right_layout.addRow(self.tr("Фильтр лиг:"), self._league_property)
+
+        layout = QHBoxLayout(self)
+        layout.setSpacing(25)
+        layout.addLayout(left_layout)
+        layout.addLayout(right_layout)
 
     @Slot()
     def show_weekday_filter(self) -> None:
-        dialog = WeekdayFilterDialog(self._script, self)
+        dialog = WeekdayFilterDialog(self._script.weekday_filter, self)
         dialog.exec()
 
     @Slot()
     def show_signal_filter(self) -> None:
-        dialog = SignalFilterDialog(self._script, self)
+        dialog = SignalFilterDialog(self._script.signal_filter, self)
         dialog.exec()
 
     @Slot()
     def show_match_filter(self) -> None:
-        dialog = MatchFilterDialog(self._script, self)
+        dialog = MatchFilterDialog(self._script.match_filter, self)
+        dialog.resize(800, 800)
+        dialog.exec()
+
+    @Slot()
+    def show_league_property(self) -> None:
+        dialog = LeaguePropertyDialog(self._script.league_filter, self)
+        dialog.exec()
+
+    @Slot()
+    def show_signal_property(self) -> None:
+        dialog = BetPropertyDialog(self._script.signal_property, parent=self)
         dialog.exec()
 
 

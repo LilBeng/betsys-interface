@@ -106,7 +106,7 @@ class WorkerDriverProcess(object):
             signal_queue: Queue,
             sender: str,
             code: EventCode,
-            signal: Signal,
+            signal: Optional[Signal],
             details: MatchDetails,
             driver_code: DriverCode
     ) -> None:

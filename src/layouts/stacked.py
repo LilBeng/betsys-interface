@@ -3,7 +3,13 @@ from typing import Optional
 from PySide6.QtWidgets import QStackedLayout, QGroupBox, QWidget
 from betsys import BET_TYPE, BetCode, MatchCode
 
-from src.layouts.bet import OverUnderLayout, OneXTwoLayout, DoubleChanceLayout, BothToScoreLayout, OddOrEvenLayout
+from src.layouts.bet import (
+    OverUnderLayout,
+    OneXTwoLayout,
+    DoubleChanceLayout,
+    BothToScoreLayout,
+    OddOrEvenLayout
+)
 
 
 class _BetGroupBox(QGroupBox):

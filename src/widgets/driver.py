@@ -296,6 +296,11 @@ class DriverToolBar(QToolBar):
             self.tr("БД Промты")
         )
 
+        self.filter_dao = self._dao_menu.addAction(
+            QIcon(":/resources/icons/dao.png"),
+            self.tr("БД Фильтры")
+        )
+
         self._dao_button.setMenu(self._dao_menu)
         self._dao_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
 

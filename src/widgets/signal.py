@@ -31,7 +31,7 @@ from betsys import (
 )
 from qasync import asyncSlot
 
-from src.dialogs.chat import MessageViewer
+from src.dialogs.chat import SignalMessageViewer
 from src.dialogs.market import StackedMarketDialog
 from src.dialogs.match import MatchDetailsDialog
 from src.layouts.flow import FlowLayout
@@ -255,7 +255,7 @@ class SignalBorder(QFrame):
             _check,
             driver_code,
             SportEventDriver.__name__,
-            SportEventDriver.generate_assistant_messages.__name__,
+            SportEventDriver.generate_assistant_signal_messages.__name__,
             signal_id
         )
 
@@ -399,11 +399,6 @@ class SignalWidget(QFrame):
             QLabel(f"{signal.signal_property.bet.format_reports(True, AppLang.code)}")
         )
 
-        if signal.metric:
-            center_layout.addRow(self.tr("Метрика:"), QLabel(f"{signal.metric}"))
-        else:
-            center_layout.addRow(self.tr("Метрика:"), QLabel(self.tr("Нет данных")))
-
         if signal.signal_property.bet.odds:
             center_layout.addRow(self.tr("Коэффициенты:"), QLabel(f"{signal.signal_property.bet.get_odds_reports()}"))
         else:
@@ -506,7 +501,7 @@ class SignalWidget(QFrame):
 
     @Slot()
     def _show_dialog(self) -> None:
-        dialog = MessageViewer(self._signal, self._driver_code, parent=self)
+        dialog = SignalMessageViewer(self._signal, self._driver_code, parent=self)
         dialog.exec()
 
     @Slot()

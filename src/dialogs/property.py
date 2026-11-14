@@ -1,6 +1,6 @@
 from typing import Optional
 
-from PySide6.QtCore import Qt, QSize, Slot
+from PySide6.QtCore import Qt, QSize, Slot, Signal as pysideSignal
 from PySide6.QtWidgets import (
     QComboBox,
     QSpinBox,
@@ -15,20 +15,24 @@ from PySide6.QtWidgets import (
     QWidget
 )
 from betsys import (
-    Script,
-    MatchCategoryCode,
-    get_match_category_name,
-    get_prior_name,
-    PriorCode,
     ClassifyLeagueCode,
     get_classify_league_name,
     get_total_bet_name,
     BetCode,
     PriorityCode,
-    get_priority_name, AIPromptDBModel
+    get_priority_name,
+    AIPromptDBModel,
+    LeagueFilter,
+    SignalProperty,
+    Signal,
+    BothToScoreBet,
+    MatchCode,
+    DriverCode,
+    FEventStatusCode,
+    MatchDetails
 )
 
-from src.dialogs.base import BaseScriptDialog, BaseButtonDialog
+from src.dialogs.base import BaseButtonDialog
 from src.dialogs.league import LeagueTreeWidget
 from src.layouts.interval import IntervalLayout
 from src.layouts.stacked import BetStackedLayout
@@ -37,82 +41,24 @@ from src.utils.lang import AppLang
 from src.widgets.switch import Switch
 
 
-class MetricPropertyDialog(BaseScriptDialog):
-    def __init__(self, script: Script, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
-        super().__init__(script, parent, *args, **kwargs)
-        self.setWindowTitle(self.tr("Параметры метрики"))
+class LeaguePropertyDialog(BaseButtonDialog):
+    def __init__(self, league_filter: LeagueFilter, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(parent, *args, **kwargs)
+        self._league_filter = league_filter
 
-        self._category_code = QComboBox(self)
-        for match_category_code in MatchCategoryCode:
-            self._category_code.addItem(get_match_category_name(match_category_code, AppLang.code), match_category_code)
-        self._category_code.setCurrentText(get_match_category_name(script.metric_property.category_code, AppLang.code))
-
-        self._use_championship = Switch(
-            size=QSize(50, 25),
-            checked=script.metric_property.use_championship,
-            parent=self
-        )
-        self._use_cup = Switch(size=QSize(50, 25), checked=script.metric_property.use_cup, parent=self)
-        self._use_friendly = Switch(size=QSize(50, 25), checked=script.metric_property.use_friendly, parent=self)
-
-        self._min_length_mask = QSpinBox(
-            minimum=1,
-            maximum=50,
-            value=script.metric_property.min_length_mask,
-            parent=self
-        )
-
-        self._prior_code = QComboBox(self)
-        for prior_code in PriorCode:
-            self._prior_code.addItem(get_prior_name(prior_code, AppLang.code), prior_code)
-        self._prior_code.setCurrentText(get_prior_name(script.metric_property.prior_code, AppLang.code))
-
-        self._number_samples = QSpinBox(
-            minimum=100,
-            maximum=5000,
-            value=script.metric_property.number_samples,
-            parent=self
-        )
-
-        self.central_layout.addRow(self.tr("Категория:"), self._category_code)
-        self.central_layout.addRow(self.tr("Распределение:"), self._prior_code)
-        self.central_layout.addRow(self.tr("Чемпионаты:"), self._use_championship)
-        self.central_layout.addRow(self.tr("Кубки:"), self._use_cup)
-        self.central_layout.addRow(self.tr("Товарищеские:"), self._use_friendly)
-        self.central_layout.addRow(self.tr("Минимальная длина маски:"), self._min_length_mask)
-        self.central_layout.addRow(self.tr("Количество генераций:"), self._number_samples)
-
-        self.setup_wheel_filter(self)
-
-    @Slot()
-    def accept(self) -> None:
-        self._script.metric_property.category_code = self._category_code.currentData()
-        self._script.metric_property.prior_code = self._prior_code.currentData()
-        self._script.metric_property.use_championship = self._use_championship.is_checked()
-        self._script.metric_property.use_cup = self._use_cup.is_checked()
-        self._script.metric_property.use_friendly = self._use_friendly.is_checked()
-        self._script.metric_property.min_length_mask = self._min_length_mask.value()
-        self._script.metric_property.number_samples = self._number_samples.value()
-
-        super().accept()
-
-
-class LeaguePropertyDialog(BaseScriptDialog):
-    def __init__(self, script: Script, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
-        super().__init__(script, parent, *args, **kwargs)
-        self.setWindowTitle(self.tr("Параметры лиг"))
+        self.setWindowTitle(self.tr("Фильтр лиг"))
 
         self._set = QListWidget(self)
         self._tree = LeagueTreeWidget(self)
         self._tree.setMinimumWidth(450)
-        self._switch = Switch(size=QSize(50, 25), checked=bool(script.league_property.ids), parent=self)
+        self._switch = Switch(size=QSize(50, 25), checked=bool(league_filter.ids), parent=self)
         self._switch.toggled.connect(self.toggled_switch)
 
         for league_code in ClassifyLeagueCode:
             item = QListWidgetItem(get_classify_league_name(league_code, AppLang.code))
             item.setData(Qt.ItemDataRole.UserRole, league_code)
 
-            if league_code in script.league_property.classify:
+            if league_code in league_filter.classify:
                 item.setCheckState(Qt.CheckState.Checked)
             else:
                 item.setCheckState(Qt.CheckState.Unchecked)
@@ -136,7 +82,7 @@ class LeaguePropertyDialog(BaseScriptDialog):
 
     @Slot()
     def update_tree(self) -> None:
-        ids = self._script.league_property.ids
+        ids = self._league_filter.ids
         if not ids:
             ids = set()
 
@@ -150,45 +96,54 @@ class LeaguePropertyDialog(BaseScriptDialog):
             if item.checkState() == Qt.CheckState.Checked:
                 codes.add(item.data(Qt.ItemDataRole.UserRole))
 
-        self._script.league_property.classify = codes
+        self._league_filter.classify = codes
 
         if self._switch.is_checked():
-            self._script.league_property.ids = self._tree.active_ids
+            self._league_filter.ids = self._tree.active_ids
         else:
-            self._script.league_property.ids = None
+            self._league_filter.ids = None
 
         super().accept()
 
 
-class BetPropertyDialog(BaseScriptDialog):
-    def __init__(self, script: Script, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
-        super().__init__(script, parent, *args, **kwargs)
+class BetPropertyDialog(BaseButtonDialog):
+    def __init__(
+            self,
+            signal_property: SignalProperty,
+            match_code: Optional[MatchCode] = None,
+            parent: Optional[QWidget] = None,
+            *args, **kwargs) -> None:
+        super().__init__(parent, *args, **kwargs)
+
+        self._signal_property = signal_property
+
         self.setWindowTitle(self.tr("Параметры сигнала"))
 
         self._priority_code = QComboBox(self)
         for priority_code in [*PriorityCode, None]:
             self._priority_code.addItem(get_priority_name(priority_code, AppLang.code), priority_code)
 
-        self._layout = BetStackedLayout(script.signal_property.bet, parent_widget=self)
+        self._layout = BetStackedLayout(signal_property.bet, parent_widget=self, match_code=match_code)
 
         self._interval_layout = IntervalLayout(1, 120, self)
 
         self._type = QComboBox(self)
         self._type.currentIndexChanged.connect(self.changed_type)
         for code in BetCode:
-            self._type.addItem(get_total_bet_name(code, AppLang.code), code)
+            if code >= 0:
+                self._type.addItem(get_total_bet_name(code, AppLang.code), code)
 
-        self._is_single = Switch(size=QSize(50, 25), checked=script.signal_property.is_single, parent=self)
+        self._is_single = Switch(size=QSize(50, 25), checked=signal_property.is_single, parent=self)
         self._interval = QCheckBox(self.tr("Время сигнала:"))
         self._interval.checkStateChanged.connect(self.change_interval)
 
-        self._type.setCurrentText(get_total_bet_name(script.signal_property.bet.bet_code, AppLang.code))
-        self._priority_code.setCurrentText(get_priority_name(script.signal_property.priority_code, AppLang.code))
-        if script.signal_property.interval:
+        self._type.setCurrentText(get_total_bet_name(signal_property.bet.bet_code, AppLang.code))
+        self._priority_code.setCurrentText(get_priority_name(signal_property.priority_code, AppLang.code))
+        if signal_property.interval:
             self._interval.setCheckState(Qt.CheckState.Checked)
             self.change_interval(Qt.CheckState.Checked)
-            self._interval_layout.min.setValue(script.signal_property.interval.min)
-            self._interval_layout.max.setValue(script.signal_property.interval.max)
+            self._interval_layout.min.setValue(signal_property.interval.min)
+            self._interval_layout.max.setValue(signal_property.interval.max)
         else:
             self._interval.setCheckState(Qt.CheckState.Unchecked)
             self.change_interval(Qt.CheckState.Unchecked)
@@ -215,15 +170,46 @@ class BetPropertyDialog(BaseScriptDialog):
 
     @Slot()
     def accept(self) -> None:
-        self._script.signal_property.priority_code = self._priority_code.currentData()
-        self._script.signal_property.bet = self._layout.bet
-        self._script.signal_property.is_single = self._is_single.is_checked()
+        self._signal_property.priority_code = self._priority_code.currentData()
+        self._signal_property.bet = self._layout.bet
+        self._signal_property.is_single = self._is_single.is_checked()
         if self._interval.isChecked():
-            self._script.signal_property.interval = self._interval_layout.interval
+            self._signal_property.interval = self._interval_layout.interval
         else:
-            self._script.signal_property.interval = None
+            self._signal_property.interval = None
 
         super().accept()
+
+
+class CreateSignalDialog(BetPropertyDialog):
+    add_signal = pysideSignal(Signal)
+
+    def __init__(
+            self,
+            driver_code: DriverCode,
+            match: MatchDetails,
+            parent: Optional[QWidget] = None,
+            *args, **kwargs
+    ) -> None:
+        self._signal = Signal(
+            match_id=match.match.match_id,
+            signal_property=SignalProperty(
+                bet=BothToScoreBet(
+                    event_status_code=FEventStatusCode.FULL_TIME,
+                    is_both_to_score=True,
+                )
+            )
+        )
+
+        super().__init__(self._signal.signal_property, match.match.match_code, parent, *args, **kwargs)
+
+        self._driver_code = driver_code
+
+    @Slot()
+    def accept(self) -> None:
+        super().accept()
+
+        self.add_signal.emit(self._signal)
 
 
 class PromptDialog(BaseButtonDialog):
@@ -233,8 +219,8 @@ class PromptDialog(BaseButtonDialog):
 
         self.setWindowTitle(self.tr("Параметры матча"))
 
-        self._bet_name_flag = Switch(size=QSize(45, 23), checked=model.bet_name_flag, parent=self)
-        self._league_name_flag = Switch(size=QSize(45, 23), checked=model.league_name_flag, parent=self)
+        self._bet_name_flag = Switch(size=QSize(50, 25), checked=model.bet_name_flag, parent=self)
+        self._league_name_flag = Switch(size=QSize(50, 25), checked=model.league_name_flag, parent=self)
         self._home_name_flag = Switch(size=QSize(50, 25), checked=model.home_name_flag, parent=self)
         self._away_name_flag = Switch(size=QSize(50, 25), checked=model.away_name_flag, parent=self)
         self._match_date_flag = Switch(size=QSize(50, 25), checked=model.match_date_flag, parent=self)

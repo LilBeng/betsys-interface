@@ -24,6 +24,7 @@ from betsys import (
     SportEventDriver,
     get_driver_name
 )
+from qasync import asyncSlot
 
 from src import ERRORS, DISPLAY
 from src.utils.button import create_icon_push_button
@@ -225,7 +226,8 @@ class MainWindow(QMainWindow):
                 self.driver_tool_bar.league_dao,
                 self.driver_tool_bar.match_details_dao,
                 self.driver_tool_bar.signal_dao,
-                self.driver_tool_bar.ai_prompt_dao
+                self.driver_tool_bar.ai_prompt_dao,
+                self.driver_tool_bar.filter_dao
             ]
         )
 
@@ -331,6 +333,7 @@ class MainWindow(QMainWindow):
         self.driver_tool_bar.match_details_dao.triggered.connect(BetSysService.service.show_matches_dialog)
         self.driver_tool_bar.signal_dao.triggered.connect(BetSysService.service.show_signals_dialog)
         self.driver_tool_bar.ai_prompt_dao.triggered.connect(BetSysService.service.show_prompts_dialog)
+        self.driver_tool_bar.filter_dao.triggered.connect(BetSysService.service.show_filter_dialog)
 
         if not only_database:
             self._tab_widget = QTabWidget(self)
@@ -349,7 +352,7 @@ class MainWindow(QMainWindow):
             self._signal_border.customContextMenuRequested.connect(self.show_context_menu)
             self._signal_border.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 
-            BetSysService.service.event.connect(self._signal_border.event.emit)
+            BetSysService.service.signal_event.connect(self._signal_border.event.emit)
 
             self.driver_tool_bar.remove_finished_signals.triggered.connect(self._signal_border.remove_finished_signals)
             self.driver_tool_bar.print_signals.triggered.connect(self._signal_border.print_signals)
@@ -507,8 +510,8 @@ class MainWindow(QMainWindow):
         global_pos = self._show_dialog.mapToGlobal(QPoint(0, -cache_menu.sizeHint().height()))
         cache_menu.popup(global_pos)
 
-    @Slot()
-    def show_information(self, driver_code: DriverCode) -> None:
+    @asyncSlot()
+    async def show_information(self, driver_code: DriverCode) -> None:
         if BetSysService.service.workers.get(driver_code):
             for index in range(self._tab_widget.count()):
                 widget = self._tab_widget.widget(index)
@@ -517,25 +520,22 @@ class MainWindow(QMainWindow):
                         self.show_message(self.tr("Вкладка с информацией уже открыта"))
                         return None
 
-                self.add_tab(driver_code)
-            else:
-                self.show_message(
-                    self.tr("Для выполнения действия запустите драйвер «{}»").format(
-                        get_driver_name(driver_code, AppLang.code)
-                    )
-                )
+            await self.add_tab(driver_code)
         else:
             self.show_message(
-                self.tr("Драйвер «{}» не инициализирован").format(get_driver_name(driver_code, AppLang.code))
+                self.tr("Для выполнения действия инициализируйте драйвер «{}»").format(
+                    get_driver_name(driver_code, AppLang.code)
+                )
             )
 
-    @Slot()
-    def add_tab(self, driver_code: DriverCode) -> None:
+    @asyncSlot()
+    async def add_tab(self, driver_code: DriverCode) -> None:
         icons = {
             DriverCode.FOOTBALL: QIcon(":/resources/icons/football.png"),
             DriverCode.HOCKEY: QIcon(":/resources/icons/hockey.png"),
             DriverCode.VOLLEYBALL: QIcon(":/resources/icons/volleyball.png")
         }
+
         widget = InformationWidget(driver_code)
         widget.print_text.connect(self.print_text)
         widget.show_message.connect(self.show_message)

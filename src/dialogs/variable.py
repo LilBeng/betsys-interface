@@ -109,7 +109,8 @@ class BaseH2HDialog(BaseVarDialog):
 
         self._bet = QComboBox(self)
         for code in BetCode:
-            self._bet.addItem(get_total_bet_name(code, AppLang.code), code)
+            if code >= 0:
+                self._bet.addItem(get_total_bet_name(code, AppLang.code), code)
         self._bet.currentIndexChanged.connect(self._changed_bet)
         if bet:
             self._bet.setCurrentText(get_total_bet_name(bet.bet_code, AppLang.code))
@@ -233,7 +234,8 @@ class BaseOtherDialog(BaseVarDialog):
         super().__init__(variable, parent, *args, **kwargs)
         self._bet = QComboBox(self)
         for code in BetCode:
-            self._bet.addItem(get_total_bet_name(code, AppLang.code), code)
+            if code >= 0:
+                self._bet.addItem(get_total_bet_name(code, AppLang.code), code)
 
         if isinstance(variable, OddsVar):
             bet = variable.odds_bet
@@ -572,7 +574,8 @@ class MetricProbabilityDialog(BaseVarDialog):
 
         self._bet = QComboBox(self)
         for code in BetCode:
-            self._bet.addItem(get_total_bet_name(code, AppLang.code), code)
+            if code >= 0:
+                self._bet.addItem(get_total_bet_name(code, AppLang.code), code)
         self._bet.currentIndexChanged.connect(self._changed_bet)
         self._bet.setCurrentText(get_total_bet_name(variable.bet.bet_code, AppLang.code))
 
@@ -640,7 +643,8 @@ class TableFormDialog(BaseVarDialog):
 
         self._bet = QComboBox(self)
         for code in BetCode:
-            self._bet.addItem(get_total_bet_name(code, AppLang.code), code)
+            if code >= 0:
+                self._bet.addItem(get_total_bet_name(code, AppLang.code), code)
         self._bet.currentIndexChanged.connect(self._changed_bet)
         if bet:
             self._bet.setCurrentText(get_total_bet_name(bet.bet_code, AppLang.code))

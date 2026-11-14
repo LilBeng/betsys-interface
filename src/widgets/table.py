@@ -1,8 +1,17 @@
 import logging
 from typing import Optional, Any
 
-from PySide6.QtCore import Signal, Qt
-from PySide6.QtWidgets import QTableWidget, QHeaderView, QAbstractItemView, QTableWidgetItem
+from PySide6.QtCore import Signal, Qt, QTimer, QModelIndex
+from PySide6.QtGui import QBrush, QColor, QPainter
+from PySide6.QtWidgets import (
+    QTableWidget,
+    QHeaderView,
+    QAbstractItemView,
+    QTableWidgetItem,
+    QStyledItemDelegate,
+    QWidget,
+    QStyleOptionViewItem
+)
 from betsys import (
     ScriptDBModel,
     get_match_name,
@@ -19,7 +28,11 @@ from betsys import (
     get_statistic_headers,
     Statistic,
     get_statistic_name,
-    ScoreStatistic
+    ScoreStatistic,
+    MatchFilterDBModel,
+    LeagueFilter,
+    MatchDetailsFilter,
+    get_global_event_status_name
 )
 
 from src.utils.color import GREEN, RED, GREY
@@ -27,6 +40,21 @@ from src.utils.delegate import ResultDelegate
 from src.utils.lang import AppLang
 
 _logger = logging.getLogger(__name__)
+
+
+class HighlightDelegate(QStyledItemDelegate):
+    def __init__(self, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        self.highlighted_ids = {}
+
+    def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex) -> None:
+        model = index.data(Qt.ItemDataRole.UserRole)
+        if model is not None:
+            match_id = model.match.match_id
+            if match_id in self.highlighted_ids:
+                painter.fillRect(option.rect, QBrush(self.highlighted_ids[match_id]))
+
+        super().paint(painter, option, index)
 
 
 class BaseTableWidget(QTableWidget):
@@ -100,12 +128,6 @@ class BaseTableWidget(QTableWidget):
             else:
                 _logger.error(f"Item not found (row index {row})")
 
-    def remove_item(self, model: Any) -> None:
-        row_index = self.get_row_index(model)
-        self.removeRow(row_index)
-
-        self.show_message.emit(self.tr("Модель [{}] удалена").format(model.id))
-
     def set_items(self, models: list[Any]) -> None:
         self.clear()
 
@@ -137,6 +159,13 @@ class BaseTableWidget(QTableWidget):
     def show_all_rows(self) -> None:
         for row in range(self.rowCount()):
             self.setRowHidden(row, False)
+
+    def delete_item(self, model: Any) -> None:
+        row_index = self.get_row_index(model)
+        if row_index is not None:
+            self.removeRow(row_index)
+
+            self.show_message.emit(self.tr("Модель [{}] удалена").format(model.id))
 
     def add_item(self, model: Any) -> None:
         ...
@@ -187,23 +216,23 @@ class ScriptTableWidget(BaseTableWidget):
 
     def update_item(self, model: ScriptDBModel) -> None:
         row_index = self.get_row_index(model)
+        if row_index is not None:
+            for column_index, value in enumerate(
+                    [
+                        model.id,
+                        model.description,
+                        get_match_name(model.match_code, AppLang.code),
+                        get_total_bet_name(model.bet_code, AppLang.code),
+                        get_signal_type_name(model.signal_type_code, AppLang.code),
+                        self.tr("Да") if model.is_active else self.tr("Нет")
+                    ]
+            ):
+                item = self.item(row_index, column_index)
+                item.setToolTip(value)
+                item.setData(Qt.ItemDataRole.DisplayRole, value)
+                item.setData(Qt.ItemDataRole.UserRole, model)
 
-        for column_index, value in enumerate(
-                [
-                    model.id,
-                    model.description,
-                    get_match_name(model.match_code, AppLang.code),
-                    get_total_bet_name(model.bet_code, AppLang.code),
-                    get_signal_type_name(model.signal_type_code, AppLang.code),
-                    self.tr("Да") if model.is_active else self.tr("Нет")
-                ]
-        ):
-            item = self.item(row_index, column_index)
-            item.setToolTip(value)
-            item.setData(Qt.ItemDataRole.DisplayRole, value)
-            item.setData(Qt.ItemDataRole.UserRole, model)
-
-        self.show_message.emit(self.tr("Модель [{}] обновлена").format(model.id))
+            self.show_message.emit(self.tr("Модель [{}] обновлена").format(model.id))
 
 
 class PromptTableWidget(BaseTableWidget):
@@ -246,22 +275,74 @@ class PromptTableWidget(BaseTableWidget):
 
     def update_item(self, model: AIPromptDBModel) -> None:
         row_index = self.get_row_index(model)
+        if row_index is not None:
+            for column_index, value in enumerate(
+                    [
+                        model.id,
+                        model.number,
+                        get_match_name(model.match_code, AppLang.code),
+                        get_total_bet_name(model.bet_code, AppLang.code),
+                        get_signal_type_name(model.signal_type_code, AppLang.code)
+                    ]
+            ):
+                item = self.item(row_index, column_index)
+                item.setToolTip(str(value))
+                item.setData(Qt.ItemDataRole.DisplayRole, value)
+                item.setData(Qt.ItemDataRole.UserRole, model)
 
-        for column_index, value in enumerate(
+            self.show_message.emit(self.tr("Модель [{}] обновлена").format(model.id))
+
+
+class MatchFilterTableWidget(BaseTableWidget):
+
+    def __init__(self, *args, **kwargs) -> None:
+        labels = [
+            self.tr("Идентификатор"),
+            self.tr("Тип игры"),
+            self.tr("Описание")
+        ]
+
+        super().__init__(labels, *args, **kwargs)
+
+    def add_item(self, model: MatchFilterDBModel) -> None:
+        self.setSortingEnabled(False)
+
+        self.insertRow(self.rowCount())
+
+        for index, value in enumerate(
                 [
                     model.id,
-                    model.number,
                     get_match_name(model.match_code, AppLang.code),
-                    get_total_bet_name(model.bet_code, AppLang.code),
-                    get_signal_type_name(model.signal_type_code, AppLang.code)
+                    model.description
                 ]
         ):
-            item = self.item(row_index, column_index)
+            item = QTableWidgetItem(value)
             item.setToolTip(str(value))
             item.setData(Qt.ItemDataRole.DisplayRole, value)
             item.setData(Qt.ItemDataRole.UserRole, model)
 
-        self.show_message.emit(self.tr("Модель [{}] обновлена").format(model.id))
+            self.setItem(self.rowCount() - 1, index, item)
+
+        self.setSortingEnabled(True)
+
+        self.show_message.emit(self.tr("Модель [{}] добавлена").format(model.id))
+
+    def update_item(self, model: MatchFilterDBModel) -> None:
+        row_index = self.get_row_index(model)
+        if row_index is not None:
+            for column_index, value in enumerate(
+                    [
+                        model.id,
+                        get_match_name(model.match_code, AppLang.code),
+                        model.description
+                    ]
+            ):
+                item = self.item(row_index, column_index)
+                item.setToolTip(str(value))
+                item.setData(Qt.ItemDataRole.DisplayRole, value)
+                item.setData(Qt.ItemDataRole.UserRole, model)
+
+            self.show_message.emit(self.tr("Модель [{}] обновлена").format(model.id))
 
 
 class MatchTableWidget(BaseTableWidget):
@@ -274,10 +355,14 @@ class MatchTableWidget(BaseTableWidget):
             self.tr("Лига"),
             self.tr("Хозяева"),
             self.tr("Гости"),
-            self.tr("Статус")
+            self.tr("Статус"),
+            self.tr("Текущая минута")
         ]
 
         super().__init__(labels, *args, **kwargs)
+
+        self._delegate = HighlightDelegate(self)
+        self.setItemDelegate(self._delegate)
 
     def get_row_index(self, model: MatchDetails) -> Optional[int]:
         """
@@ -296,10 +381,14 @@ class MatchTableWidget(BaseTableWidget):
                 _logger.error(f"Item not found (row index {row})")
 
     def remove_item(self, model: MatchDetails) -> None:
+        self.setSortingEnabled(False)
+
         row_index = self.get_row_index(model)
         self.removeRow(row_index)
 
         self.show_message.emit(self.tr("Модель [{}] удалена").format(model.match.match_id))
+
+        self.setSortingEnabled(True)
 
     def check_model(self, model: MatchDetails) -> bool:
         for row_index in range(self.rowCount()):
@@ -314,6 +403,9 @@ class MatchTableWidget(BaseTableWidget):
 
         self.insertRow(self.rowCount())
 
+        status_name = get_global_event_status_name(model.match.match_summary.event_status_code, AppLang.code)
+        current_time = model.match.match_summary.current_time
+
         for index, value in enumerate(
                 [
                     model.match.match_id,
@@ -322,7 +414,8 @@ class MatchTableWidget(BaseTableWidget):
                     model.match.league.league_name,
                     model.match.home_team.name,
                     model.match.away_team.name,
-                    get_match_status_name(model.match.match_summary.match_status_code, AppLang.code)
+                    get_match_status_name(model.match.match_summary.match_status_code, AppLang.code),
+                    current_time if current_time != -1 else status_name
                 ]
         ):
             item = QTableWidgetItem(value)
@@ -337,25 +430,78 @@ class MatchTableWidget(BaseTableWidget):
         self.show_message.emit(self.tr("Модель [{}] добавлена").format(model.match.match_id))
 
     def update_item(self, model: MatchDetails) -> None:
+        self.setSortingEnabled(False)
+
         row_index = self.get_row_index(model)
+        if row_index:
+            status_name = get_global_event_status_name(model.match.match_summary.event_status_code, AppLang.code)
+            current_time = model.match.match_summary.current_time
+            for column_index, value in enumerate(
+                    [
+                        model.match.match_id,
+                        model.match.match_summary.match_datetime.strftime("%d.%m.%Y %H:%M"),
+                        model.match.league.country_name,
+                        model.match.league.league_name,
+                        model.match.home_team.name,
+                        model.match.away_team.name,
+                        get_match_status_name(model.match.match_summary.match_status_code, AppLang.code),
+                        current_time if current_time != -1 else status_name
+                    ]
+            ):
+                item = self.item(row_index, column_index)
+                item.setToolTip(str(value))
+                item.setData(Qt.ItemDataRole.DisplayRole, value)
+                item.setData(Qt.ItemDataRole.UserRole, model)
 
-        for column_index, value in enumerate(
-                [
-                    model.match.match_id,
-                    model.match.match_summary.match_datetime.strftime("%d.%m.%Y %H:%M"),
-                    model.match.league.country_name,
-                    model.match.league.league_name,
-                    model.match.home_team.name,
-                    model.match.away_team.name,
-                    get_match_status_name(model.match.match_summary.match_status_code, AppLang.code)
-                ]
-        ):
-            item = self.item(row_index, column_index)
-            item.setToolTip(str(value))
-            item.setData(Qt.ItemDataRole.DisplayRole, value)
-            item.setData(Qt.ItemDataRole.UserRole, model)
+            self.show_message.emit(self.tr("Модель [{}] обновлена").format(model.match.match_id))
 
-        self.show_message.emit(self.tr("Модель [{}] обновлена").format(model.match.match_id))
+            self._delegate.highlighted_ids[model.match.match_id] = QColor(46, 90, 172)
+            self.viewport().update()
+
+            def clear():
+                try:
+                    self._delegate.highlighted_ids.pop(model.match.match_id, None)
+                    self.viewport().update()
+                finally:
+                    pass
+
+            QTimer.singleShot(3000, clear)
+
+        self.setSortingEnabled(True)
+
+    def delete_item(self, model: MatchDetails) -> None:
+        row_index = self.get_row_index(model)
+        if row_index is not None:
+            self.removeRow(row_index)
+
+            self.show_message.emit(self.tr("Модель [{}] удалена").format(model.match.match_id))
+
+    def filter_matches(self, model: MatchFilterDBModel) -> None:
+        self.setSortingEnabled(False)
+
+        league_filter = LeagueFilter.decompress(model.league_filter)
+        match_details_filter = MatchDetailsFilter.decompress(model.match_details_filter)
+
+        for row in range(self.rowCount()):
+            found = False
+            for col in range(self.columnCount()):
+                if item := self.item(row, col):
+                    if data := item.data(Qt.ItemDataRole.UserRole):
+                        if league_filter.validate_league(data) and match_details_filter.validate_match_details(data):
+                            found = True
+                            break
+
+            self.setRowHidden(row, not found)
+
+        self.setSortingEnabled(True)
+
+    def show_all_matches(self) -> None:
+        self.setUpdatesEnabled(False)
+        try:
+            for row in range(self.rowCount()):
+                self.setRowHidden(row, False)
+        finally:
+            self.setUpdatesEnabled(True)
 
 
 class TableWidget(BaseTableWidget):

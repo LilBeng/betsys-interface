@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QWidget,
     QToolBar,
-    QMenu
+    QMenu, QScrollArea
 )
 from betsys import (
     LiteDBConfig,
@@ -38,7 +38,7 @@ from betsys import (
     DialogConfig,
     ReasoningEffortCode,
     get_reasoning_effort_name,
-    AutosaveConfig, ForeBetConfig
+    AutosaveConfig, ForeBetConfig, MetricConfig, MatchCategoryCode, get_match_category_name, PriorCode, get_prior_name
 )
 
 from src import CONFIG, AUTOSAVE_DIR
@@ -55,6 +55,7 @@ class LiteDBConfigBox(QGroupBox):
     """
     Конфигурация SQLite.
     """
+
     def __init__(self, config: Optional[LiteDBConfig] = None, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
@@ -102,6 +103,7 @@ class PostgresDBConfigBox(QGroupBox):
     """
     Конфигурация PostgreSQL.
     """
+
     def __init__(self, config: Optional[PostgresDBConfig] = None, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
@@ -150,6 +152,7 @@ class DAOConfigDialog(QDialog):
     """
     Конфигурация БД.
     """
+
     def __init__(self, config: Optional[Union[LiteDBConfig, PostgresDBConfig]] = None, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
@@ -232,6 +235,7 @@ class ScraperGroupBox(QGroupBox):
     """
     Конфигурация Flashscore.
     """
+
     def __init__(self, config: Optional[FlashScoreConfig] = None, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
@@ -368,6 +372,7 @@ class AIConfigBox(QGroupBox):
     """
     Конфигурация ИИ.
     """
+
     def __init__(self, config: Optional[AIAssistantConfig] = None, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.setTitle(self.tr("Ассистент"))
@@ -432,10 +437,75 @@ class AIConfigBox(QGroupBox):
         )
 
 
+class MetricConfigBox(QGroupBox):
+    """
+    Конфигурация метрики.
+    """
+
+    def __init__(self, config: MetricConfig, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(parent, *args, **kwargs)
+        self.setTitle(self.tr("Метрика"))
+
+        self._category_code = QComboBox(self)
+        for match_category_code in MatchCategoryCode:
+            self._category_code.addItem(get_match_category_name(match_category_code, AppLang.code), match_category_code)
+
+        self._category_code.setCurrentText(get_match_category_name(config.category_code, AppLang.code))
+
+        self._use_championship = Switch(
+            size=QSize(50, 25),
+            checked=config.use_championship,
+            parent=self
+        )
+        self._use_cup = Switch(size=QSize(50, 25), checked=config.use_cup, parent=self)
+        self._use_friendly = Switch(size=QSize(50, 25), checked=config.use_friendly, parent=self)
+
+        self._min_length_mask = QSpinBox(
+            minimum=1,
+            maximum=50,
+            value=config.min_length_mask,
+            parent=self
+        )
+
+        self._prior_code = QComboBox(self)
+        for prior_code in PriorCode:
+            self._prior_code.addItem(get_prior_name(prior_code, AppLang.code), prior_code)
+        self._prior_code.setCurrentText(get_prior_name(config.prior_code, AppLang.code))
+
+        self._number_samples = QSpinBox(
+            minimum=100,
+            maximum=5000,
+            value=config.number_samples,
+            parent=self
+        )
+
+        layout = QFormLayout(self)
+        layout.addRow(self.tr("Категория:"), self._category_code)
+        layout.addRow(self.tr("Распределение:"), self._prior_code)
+        layout.addRow(self.tr("Чемпионаты:"), self._use_championship)
+        layout.addRow(self.tr("Кубки:"), self._use_cup)
+        layout.addRow(self.tr("Товарищеские:"), self._use_friendly)
+        layout.addRow(self.tr("Минимальная длина маски:"), self._min_length_mask)
+        layout.addRow(self.tr("Количество генераций:"), self._number_samples)
+
+    @property
+    def config(self) -> MetricConfig:
+        return MetricConfig(
+            category_code=self._category_code.currentData(),
+            prior_code=self._prior_code.currentData(),
+            use_championship=self._use_championship.is_checked(),
+            use_cup=self._use_cup.is_checked(),
+            use_friendly=self._use_friendly.is_checked(),
+            min_length_mask=self._min_length_mask.value(),
+            number_samples=self._number_samples.value()
+        )
+
+
 class DriverConfigDialog(QDialog):
     """
     Конфигурация драйвера.
     """
+
     def __init__(
             self,
             config: Optional[DriverConfig] = None,
@@ -447,10 +517,13 @@ class DriverConfigDialog(QDialog):
 
         self.setWindowTitle(self.tr("Настройка конфигурации"))
         self.setWindowIcon(QIcon(":/resources/icons/config.png"))
+        self.setFixedWidth(750)
 
         self._scraper_box = ScraperGroupBox(config.scraper_config if config else None, parent=self)
+
+        self._metric_box = MetricConfigBox(config.metric_config, parent=self)
+
         self._assistant_box = AIConfigBox(config.assistant_config if config else None, parent=self)
-        self._assistant_box.setFixedWidth(550)
 
         self._max_workers = QSpinBox(self, minimum=1, maximum=os.cpu_count())
 
@@ -503,7 +576,7 @@ class DriverConfigDialog(QDialog):
 
             if config.autosave_config:
                 self._path.setText(config.autosave_config.folder_path)
-                
+
                 self._autosave_time.setTime(
                     QTime(
                         config.autosave_config.time.hours,
@@ -531,7 +604,6 @@ class DriverConfigDialog(QDialog):
         self.change_assistant(self._assistant.is_checked())
 
         scheduler_box = QGroupBox(self, title=self.tr("Планировщик задач"))
-        scheduler_box.setFixedWidth(550)
         scheduler_layout = QFormLayout(scheduler_box)
         scheduler_layout.setSpacing(10)
         scheduler_layout.addRow(self.tr("Количество потоков:"), self._max_workers)
@@ -566,23 +638,25 @@ class DriverConfigDialog(QDialog):
         layout_button.addWidget(apply_button)
         layout_button.addWidget(cancel_button)
 
-        top_layout = QHBoxLayout()
-        top_layout.addWidget(driver_box)
-        top_layout.addWidget(scheduler_box)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
 
-        left_layout = QVBoxLayout()
-        left_layout.addWidget(self._scraper_box)
+        self.content_widget = QWidget()
 
-        bottom_layout = QHBoxLayout()
-        bottom_layout.addLayout(left_layout)
-        bottom_layout.addWidget(self._assistant_box)
+        self.content_layout = QVBoxLayout(self.content_widget)
+        self.content_layout.setSpacing(5)
 
-        layout = QFormLayout(self)
-        layout.setSizeConstraint(QFormLayout.SizeConstraint.SetFixedSize)
-        layout.setSpacing(5)
-        layout.addRow(top_layout)
-        layout.addRow(bottom_layout)
-        layout.addRow(layout_button)
+        self.content_layout.addWidget(driver_box)
+        self.content_layout.addWidget(scheduler_box)
+        self.content_layout.addWidget(self._metric_box)
+        self.content_layout.addWidget(self._scraper_box)
+        self.content_layout.addWidget(self._assistant_box)
+
+        self.scroll_area.setWidget(self.content_widget)
+
+        main_layout = QVBoxLayout(self)
+        main_layout.addWidget(self.scroll_area)
+        main_layout.addLayout(layout_button)
 
         # Создаем и устанавливаем фильтр
         self.wheel_blocker = WheelBlocker()

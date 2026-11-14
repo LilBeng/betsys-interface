@@ -234,7 +234,7 @@ class ScriptDAODialog(BaseDAODialog):
             for index, model in enumerate(models, start=1):
                 flag = await self.db_context.scripts.delete(id=model.id)
                 if flag:
-                    self.central_widget.remove_item(model)
+                    self.central_widget.delete_item(model)
                 else:
                     _logger.error(f"Model (id={model.id}) - failed to delete")
                     self.show_message(self.tr("Не удалось выполнить операцию"))

@@ -30,14 +30,18 @@ from betsys import (
     get_match_name,
     SignalTypeCode,
     get_signal_type_name,
-    get_total_bet_name
+    get_total_bet_name,
+    MatchFilterDBModel,
+    MatchDetailsFilter,
+    LeagueFilter
 )
 
-from src.dialogs.property import PromptDialog
+from src.dialogs.filters import MatchFilterDialog
+from src.dialogs.property import PromptDialog, LeaguePropertyDialog
 from src.utils.blocker import WheelBlocker
 from src.utils.button import create_icon_push_button
 from src.utils.lang import AppLang
-from src.widgets.box import DataGroupBox, PropertyGroupBox, FilterGroupBox, DescriptionGroupBox
+from src.widgets.box import DataGroupBox, PropertyGroupBox, DescriptionGroupBox
 
 
 class ScriptEditorWidget(QWidget):
@@ -74,6 +78,7 @@ class ScriptEditorWidget(QWidget):
                     event_status_code=FEventStatusCode.FULL_TIME,
                     is_even=True
                 )
+
             self._script = Script(
                 script_id=self.model.id,
                 description=self.model.description,
@@ -98,13 +103,11 @@ class ScriptEditorWidget(QWidget):
         self._data = DataGroupBox(self._script)
         self._data.setMaximumWidth(450)
         self._property = PropertyGroupBox(self._script)
-        self._filter = FilterGroupBox(self._script)
         self._description = DescriptionGroupBox(self._script)
 
         box_layout = QHBoxLayout()
         box_layout.addWidget(self._data, alignment=Qt.AlignmentFlag.AlignTop)
         box_layout.addWidget(self._property, alignment=Qt.AlignmentFlag.AlignTop)
-        box_layout.addWidget(self._filter, alignment=Qt.AlignmentFlag.AlignTop)
         box_layout.addWidget(self._description)
 
         layout = QVBoxLayout(self)
@@ -115,8 +118,9 @@ class ScriptEditorWidget(QWidget):
     def save_model(self) -> None:
         self.model.match_code = self._script.match_code
         self.model.description = self._script.description
-        self.model.is_active = self._script.is_active
         self.model.signal_type_code = self._script.signal_property.signal_type_code
+        self.model.bet_code = self._script.signal_property.bet.bet_code
+        self.model.is_active = self._script.is_active
         self.model.obj = self._script.compress()
 
         self.save_model_signal.emit(self.model)
@@ -231,3 +235,106 @@ class PromptEditorWidget(QWidget):
     def show_dialog(self) -> None:
         dialog = PromptDialog(self.model, self)
         dialog.exec()
+
+
+class MatchFilterEditorWidget(QWidget):
+    save_model_signal = Signal(MatchFilterDBModel)
+
+    def __init__(self, model: MatchFilterDBModel, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.model = model
+
+        self._toolbar = QToolBar(iconSize=QSize(35, 35), parent=self)
+
+        self._save_button = QAction(
+            QIcon(":/resources/icons/save.png"),
+            self.tr("Сохранить изменения"),
+            self
+        )
+        self._save_button.triggered.connect(self.save_model)
+
+        self._toolbar.addAction(self._save_button)
+
+        icons = [
+            QIcon(":/resources/icons/football.png"),
+            QIcon(":/resources/icons/hockey.png"),
+            QIcon(":/resources/icons/volleyball.png"),
+        ]
+
+        self.wheel_blocker = WheelBlocker()
+
+        self._match_code = QComboBox(self)
+        self._match_code.installEventFilter(self.wheel_blocker)
+        for match_code, icon in zip(MatchCode, icons):
+            self._match_code.addItem(icon, get_match_name(match_code, AppLang.code), match_code)
+
+        self._match_code.setCurrentText(get_match_name(model.match_code, AppLang.code))
+
+        self._text = QPlainTextEdit(self)
+        self._text.setPlaceholderText(self.tr("Введите описание ..."))
+        self._text.setPlainText(model.description)
+
+        self._match_filter = create_icon_push_button(
+            icon=QIcon(":/resources/icons/config.png"),
+            tooltip=self.tr("Конфигурация"),
+            parent=self
+        )
+        self._match_filter.clicked.connect(self.show_match_dilog)
+
+        self._league_filter = create_icon_push_button(
+            icon=QIcon(":/resources/icons/config.png"),
+            tooltip=self.tr("Конфигурация"),
+            parent=self
+        )
+        self._league_filter.clicked.connect(self.show_league_dilog)
+
+        param_layout = QFormLayout()
+        param_layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
+        param_layout.setVerticalSpacing(15)
+        param_layout.setHorizontalSpacing(15)
+        param_layout.addRow(self.tr("Тип матча:"), self._match_code)
+        param_layout.addRow(self.tr("Матчи:"), self._match_filter)
+        param_layout.addRow(self.tr("Лиги:"), self._league_filter)
+
+        text_layout = QVBoxLayout()
+        text_layout.setSpacing(5)
+        text_layout.addWidget(self._text)
+
+        param = QGroupBox(self.tr("Параметры"), self)
+        param.setLayout(param_layout)
+
+        text = QGroupBox(self.tr("Описание"), self)
+        text.setLayout(text_layout)
+
+        central_layout = QHBoxLayout()
+        central_layout.addWidget(param, alignment=Qt.AlignmentFlag.AlignTop)
+        central_layout.addWidget(text)
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(self._toolbar, alignment=Qt.AlignmentFlag.AlignTop)
+        layout.addLayout(central_layout)
+
+    @Slot()
+    def show_league_dilog(self) -> None:
+        league_filter = LeagueFilter.decompress(self.model.league_filter)
+
+        dialog = LeaguePropertyDialog(league_filter, self)
+        dialog.exec()
+
+        self.model.league_filter = league_filter.compress()
+
+    @Slot()
+    def show_match_dilog(self) -> None:
+        match_filter = MatchDetailsFilter.decompress(self.model.match_details_filter)
+
+        dialog = MatchFilterDialog(match_filter, self)
+        dialog.exec()
+
+        self.model.match_details_filter = match_filter.compress()
+
+    @Slot()
+    def save_model(self) -> None:
+        self.model.match_code = self._match_code.currentData()
+        self.model.description = self._text.toPlainText()
+
+        self.save_model_signal.emit(self.model)

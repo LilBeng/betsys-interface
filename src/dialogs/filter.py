@@ -1,374 +1,260 @@
+import logging
+import uuid
 from typing import Optional
 
-from PySide6.QtCore import Slot, QSize, QPoint
-from PySide6.QtGui import Qt, QIcon, QColor, QAction
-from PySide6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
-    QDoubleSpinBox,
-    QVBoxLayout,
-    QLayout,
-    QScrollArea,
-    QWidget,
-    QHBoxLayout,
-    QToolBar,
-    QLineEdit,
-    QMenu
-)
-from betsys import (
-    Script,
-    WeekdayCode,
-    get_weekday_name,
-    PriorityCode,
-    get_priority_name,
-    VarCode
-)
+from PySide6.QtCore import QPoint, Slot, Qt
+from PySide6.QtGui import QIcon, QAction
+from PySide6.QtWidgets import QWidget, QTabWidget, QLineEdit, QMenu
+from betsys import DBContext, LeagueFilter, MatchDetailsFilter, MatchFilterDBModel, MatchCode
+from qasync import asyncSlot
 
-from src.dialogs.base import BaseScriptDialog
-from src.utils.highlighter import TextKeywords
-from src.utils.lang import AppLang
-from src.widgets.color import ColorWidget
-from src.widgets.expr import ExpressionStackWidget
-from src.widgets.switch import Switch
-from src.widgets.variable import DraggableVariableWidget, VariableStackWidget
+from src.dialogs.dao import BaseDAODialog
+from src.widgets.editor import MatchFilterEditorWidget
+from src.widgets.table import MatchFilterTableWidget
+
+_logger = logging.getLogger(__name__)
 
 
-class WeekdayFilterDialog(BaseScriptDialog):
-    def __init__(self, script: Script, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
-        super().__init__(script, parent, *args, **kwargs)
-        self.setWindowTitle(self.tr("Фильтр дней недели"))
+class MatchFilterDAODialog(BaseDAODialog):
+    def __init__(self, db_context: DBContext, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
+        super().__init__(
+            db_context,
+            MatchFilterTableWidget,
+            self.tr("БД Фильтры"),
+            QIcon(":/resources/icons/dao.png"),
+            parent,
+            *args,
+            **kwargs
+        )
 
-        self.central_layout.setSpacing(20)
-        self.central_layout.setHorizontalSpacing(120)
+        self._create_action = QAction(
+            QIcon(":/resources/icons/create.png"),
+            self.tr("Создать"),
+            self
+        )
 
-        self._switches = {}
-        for weekday_code in WeekdayCode:
-            switch = Switch(size=QSize(50, 25), checked=weekday_code in script.weekday_filter.weekdays, parent=self)
+        self._edit_action = QAction(
+            QIcon(":/resources/icons/edit.png"),
+            self.tr("Редактировать"),
+            self
+        )
 
-            self._switches[weekday_code] = switch
+        self._delete_action = QAction(
+            QIcon(":/resources/icons/delete.png"),
+            self.tr("Удалить"),
+            self
+        )
 
-            self.central_layout.addRow(get_weekday_name(weekday_code, AppLang.code), switch)
+        self._remove_action = QAction(
+            QIcon(":/resources/icons/remove.png"),
+            self.tr("Очистить"),
+            self
+        )
+
+        self._update_action = QAction(
+            QIcon(":/resources/icons/update.png"),
+            self.tr("Обновить"),
+            self
+        )
+
+        self.tab_widget = QTabWidget(self)
+        self.tab_widget.setTabsClosable(True)
+        self.tab_widget.setVisible(False)
+        self.tab_widget.tabCloseRequested.connect(self.close_tab)
+
+        self._search_input = QLineEdit(self)
+        self._search_input.setPlaceholderText(self.tr("Введите текст для поиска ..."))
+        self._search_input.textChanged.connect(self.on_search)
+
+        self.central_layout.addWidget(self._search_input)
+        self.splitter.addWidget(self.tab_widget)
+
+        self.central_widget.cellDoubleClicked.connect(self.edit_models)
+
+        self.toolbar.addAction(self._create_action)
+        self.toolbar.addAction(self._edit_action)
+        self.toolbar.addAction(self._delete_action)
+        self.toolbar.addSeparator()
+        self.toolbar.addAction(self._remove_action)
+        self.toolbar.addAction(self._update_action)
+
+        self.start_update.connect(self.update_table)
+
+        self.central_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.central_widget.customContextMenuRequested.connect(self.show_context_menu)
+        self.central_widget.update_progress.connect(self.update_progress.emit)
+        self.central_widget.show_message.connect(self.show_message)
+
+        self._create_action.triggered.connect(self.create_model)
+        self._edit_action.triggered.connect(self.edit_models)
+        self._delete_action.triggered.connect(self.delete_models)
+        self._remove_action.triggered.connect(self.remove_models)
+        self._update_action.triggered.connect(self.start_update.emit)
+
+        self.start_update.emit()
 
     @Slot()
-    def accept(self) -> None:
-        codes = set()
-        for code, switch in self._switches.items():
-            if switch.is_checked():
-                codes.add(code)
+    def close_tab(self, index: int) -> None:
+        self.tab_widget.removeTab(index)
 
-        self._script.weekday_filter.weekdays = codes
+        if not self.tab_widget.count():
+            self.tab_widget.setVisible(False)
+            self._search_input.setEnabled(True)
+            self.central_widget.setEnabled(True)
+            self.enabled_actions(True)
 
-        super().accept()
+    @Slot()
+    def on_search(self, text: str) -> None:
+        if text.strip():
+            self.central_widget.filter_table_rows(text)
+        else:
+            self.central_widget.show_all_rows()
 
+    @Slot()
+    def show_context_menu(self, position: QPoint) -> None:
+        """
+        Показать контекстное меню.
 
-class SignalFilterDialog(BaseScriptDialog):
-    def __init__(self, script: Script, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
-        super().__init__(script, parent, *args, **kwargs)
-        self.setWindowTitle(self.tr("Фильтр сигналов"))
+        :param position: Позиция.
+        """
+        context_menu = QMenu(self)
+        context_menu.addAction(self._create_action)
 
-        self._min_priority = QCheckBox(self.tr("Приоритет [Min]:"), self)
-        self._min_mean_metric_probability = QCheckBox(self.tr("Вероятность метрики [Mean-Min]:"), self)
-        self._min_mean_probability = QCheckBox(self.tr("Вероятность исхода [Mean-Min]:"), self)
-        self._min_mean_odds = QCheckBox(self.tr("Коэффициент [Mean-Min]:"), self)
-
-        self._min_priority_code = QComboBox(self)
-        for priority_code in PriorityCode:
-            self._min_priority_code.addItem(get_priority_name(priority_code, AppLang.code), priority_code)
-
-        self._min_mean_metric_probability_value = QDoubleSpinBox(
-            decimals=2,
-            minimum=0.1,
-            maximum=1,
-            singleStep=0.01,
-            parent=self
-        )
-        self._min_mean_probability_value = QDoubleSpinBox(
-            decimals=2,
-            minimum=0.1,
-            maximum=1,
-            singleStep=0.01,
-            parent=self
-        )
-        self._min_mean_odds_value = QDoubleSpinBox(
-            decimals=2,
-            minimum=0.1,
-            maximum=100,
-            singleStep=0.01,
-            parent=self
-        )
-
-        self._min_priority.checkStateChanged.connect(self.change_min_priority_code)
-        self._min_mean_metric_probability.checkStateChanged.connect(self.change_min_mean_metric_probability_value)
-        self._min_mean_probability.checkStateChanged.connect(self.change_min_mean_probability_value)
-        self._min_mean_odds.checkStateChanged.connect(self.change_min_mean_odds_value)
-
-        if script.signal_filter.min_priority_code is not None:
-            self._min_priority_code.setCurrentText(
-                get_priority_name(script.signal_filter.min_priority_code, AppLang.code)
+        if self.central_widget.get_selected_models():
+            context_menu.addActions(
+                [
+                    self._edit_action,
+                    self._delete_action
+                ]
             )
 
-            self._min_priority.setCheckState(Qt.CheckState.Checked)
-            self.change_min_priority_code(Qt.CheckState.Checked)
-        else:
-            self._min_priority.setCheckState(Qt.CheckState.Unchecked)
-            self.change_min_priority_code(Qt.CheckState.Unchecked)
+        context_menu.addSeparator()
 
-        if script.signal_filter.min_mean_metric_probability_value:
-            self._min_mean_metric_probability_value.setValue(script.signal_filter.min_mean_metric_probability_value)
-            self._min_mean_metric_probability.setCheckState(Qt.CheckState.Checked)
-            self.change_min_mean_metric_probability_value(Qt.CheckState.Checked)
-        else:
-            self._min_mean_metric_probability.setCheckState(Qt.CheckState.Unchecked)
-            self.change_min_mean_metric_probability_value(Qt.CheckState.Unchecked)
-
-        if script.signal_filter.min_mean_probability_value:
-            self._min_mean_probability_value.setValue(script.signal_filter.min_mean_probability_value)
-            self._min_mean_probability.setCheckState(Qt.CheckState.Checked)
-            self.change_min_mean_probability_value(Qt.CheckState.Checked)
-        else:
-            self._min_mean_probability.setCheckState(Qt.CheckState.Unchecked)
-            self.change_min_mean_probability_value(Qt.CheckState.Unchecked)
-
-        if script.signal_filter.min_mean_odds_value:
-            self._min_mean_odds_value.setValue(script.signal_filter.min_mean_odds_value)
-            self._min_mean_odds.setCheckState(Qt.CheckState.Checked)
-            self.change_min_mean_odds_value(Qt.CheckState.Checked)
-
-        else:
-            self._min_mean_odds.setCheckState(Qt.CheckState.Unchecked)
-            self.change_min_mean_odds_value(Qt.CheckState.Unchecked)
-
-        self.central_layout.addRow(self._min_priority, self._min_priority_code)
-        self.central_layout.addRow(self._min_mean_metric_probability, self._min_mean_metric_probability_value)
-        self.central_layout.addRow(self._min_mean_probability, self._min_mean_probability_value)
-        self.central_layout.addRow(self._min_mean_odds, self._min_mean_odds_value)
-
-        self.setup_wheel_filter(self)
-
-    @Slot()
-    def change_min_priority_code(self, state: Qt.CheckState) -> None:
-        if state == Qt.CheckState.Checked:
-            self._min_priority_code.setEnabled(True)
-        else:
-            self._min_priority_code.setEnabled(False)
-
-    @Slot()
-    def change_min_mean_metric_probability_value(self, state: Qt.CheckState) -> None:
-        if state == Qt.CheckState.Checked:
-            self._min_mean_metric_probability_value.setEnabled(True)
-        else:
-            self._min_mean_metric_probability_value.setEnabled(False)
-
-    @Slot()
-    def change_min_mean_probability_value(self, state: Qt.CheckState) -> None:
-        if state == Qt.CheckState.Checked:
-            self._min_mean_probability_value.setEnabled(True)
-        else:
-            self._min_mean_probability_value.setEnabled(False)
-
-    @Slot()
-    def change_min_mean_odds_value(self, state: Qt.CheckState) -> None:
-        if state == Qt.CheckState.Checked:
-            self._min_mean_odds_value.setEnabled(True)
-        else:
-            self._min_mean_odds_value.setEnabled(False)
-
-    @Slot()
-    def accept(self) -> None:
-        signal_filter = self._script.signal_filter
-
-        if self._min_priority.isChecked():
-            signal_filter.min_priority_code = self._min_priority_code.currentData()
-        else:
-            signal_filter.min_priority_code = None
-
-        if self._min_mean_metric_probability.isChecked():
-            signal_filter.min_mean_metric_probability_value = self._min_mean_metric_probability_value.value()
-        else:
-            signal_filter.min_mean_metric_probability_value = None
-
-        if self._min_mean_probability.isChecked():
-            signal_filter.min_mean_probability_value = self._min_mean_probability_value.value()
-        else:
-            signal_filter.min_mean_probability_value = None
-
-        if self._min_mean_odds.isChecked():
-            signal_filter.min_mean_odds_value = self._min_mean_odds_value.value()
-        else:
-            signal_filter.min_mean_odds_value = None
-
-        super().accept()
-
-
-class MatchFilterDialog(BaseScriptDialog):
-    def __init__(self, script: Script, parent: Optional[QWidget] = None, *args, **kwargs) -> None:
-        super().__init__(script, parent, *args, **kwargs)
-        self.setWindowTitle(self.tr("Фильтр матчей"))
-
-        self.layout().setSizeConstraint(QLayout.SizeConstraint.SetDefaultConstraint)
-
-        self._var_widget = VariableStackWidget(script.match_filter.variables, self)
-        self._expr_widget = ExpressionStackWidget(script.match_filter.expressions, self)
-        self._lineups_widget = Switch(size=QSize(45, 20), checked=script.match_filter.has_lineups, parent=self)
-
-        var_type = ColorWidget(
-            title=self.tr("Тип переменной"),
-            icon=QIcon(":/resources/icons/var_type.png"),
-            icon_size=QSize(32, 32),
-            color=QColor(60, 65, 75),
-            parent=self
-        )
-        var_type.setFixedHeight(55)
-        var_type.setMaximumWidth(400)
-
-        lineups = ColorWidget(
-            title=self.tr("Ожидать обновления состава команд"),
-            icon=QIcon(":/resources/icons/lineups.png"),
-            icon_size=QSize(32, 32),
-            color=QColor(60, 65, 75),
-            parent=self
-        )
-        lineups.setFixedHeight(55)
-
-        lineups_toolbar = QToolBar(parent=self, iconSize=QSize(30, 30))
-        lineups_toolbar.addWidget(self._lineups_widget)
-        lineups.central_layout.addWidget(lineups_toolbar)
-
-        var = ColorWidget(
-            title=self.tr("Переменные"),
-            icon=QIcon(":/resources/icons/var.png"),
-            icon_size=QSize(32, 32),
-            color=QColor(60, 65, 75),
-            parent=self
-        )
-        var.setFixedHeight(55)
-
-        var_toolbar = QToolBar(parent=self, iconSize=QSize(30, 30))
-
-        var.central_layout.addWidget(var_toolbar)
-
-        self._remove_var = QAction(
-            QIcon(":/resources/icons/remove.png"),
-            self.tr("Очистить"),
-            self
+        context_menu.addActions(
+            [
+                self._remove_action,
+                self._update_action
+            ]
         )
 
-        self._find_edit = QLineEdit(self, placeholderText=self.tr("Имя для поиска ..."))
-        self._find_edit.textChanged.connect(self._var_widget.find_variable)
-
-        var_toolbar.addWidget(self._find_edit)
-        var_toolbar.addAction(self._remove_var)
-
-        expr = ColorWidget(
-            title=self.tr("Выражения"),
-            icon=QIcon(":/resources/icons/expr.png"),
-            icon_size=QSize(32, 32),
-            color=QColor(60, 65, 75),
-            parent=self
-        )
-        expr.setFixedHeight(55)
-
-        expr_toolbar = QToolBar(parent=self, iconSize=QSize(30, 30))
-
-        self._add_expr = QAction(
-            QIcon(":/resources/icons/plus.png"),
-            self.tr("Добавить"),
-            self
-        )
-        self._remove_expr = QAction(
-            QIcon(":/resources/icons/remove.png"),
-            self.tr("Очистить"),
-            self
-        )
-        self._info_expr = QAction(
-            QIcon(":/resources/icons/info.png"),
-            self.tr("Информация"),
-            self
-        )
-        expr_toolbar.addActions([self._add_expr,  self._info_expr, self._remove_expr])
-
-        expr.central_layout.addWidget(expr_toolbar)
-
-        var_type_widget = QWidget(self)
-        var_type_scroll_layout = QVBoxLayout(var_type_widget)
-        var_type_scroll_layout.setContentsMargins(10, 10, 10, 10)
-        var_type_scroll_layout.setSpacing(10)
-
-        for var_code in VarCode:
-            widget = DraggableVariableWidget(var_code, self)
-            widget.add_variable_signal.connect(self._var_widget.create_variable)
-            var_type_scroll_layout.addWidget(widget)
-
-        var_type_scroll_layout.addStretch()
-
-        variable_type_scroll = QScrollArea()
-        variable_type_scroll.setMaximumWidth(400)
-        variable_type_scroll.setWidget(var_type_widget)
-        variable_type_scroll.setWidgetResizable(True)
-
-        var_type_layout = QVBoxLayout()
-        var_type_layout.addWidget(var_type, alignment=Qt.AlignmentFlag.AlignTop)
-        var_type_layout.addWidget(variable_type_scroll)
-
-        var_scroll = QScrollArea()
-        var_scroll.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        var_scroll.customContextMenuRequested.connect(self.show_var_context_menu)
-        var_scroll.setWidget(self._var_widget)
-        var_scroll.setWidgetResizable(True)
-
-        expr_scroll = QScrollArea()
-        expr_scroll.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        expr_scroll.customContextMenuRequested.connect(self.show_expr_context_menu)
-        expr_scroll.setWidget(self._expr_widget)
-        expr_scroll.setWidgetResizable(True)
-
-        var_layout = QVBoxLayout()
-        var_layout.addWidget(var, alignment=Qt.AlignmentFlag.AlignTop)
-        var_layout.addWidget(var_scroll, stretch=5)
-        var_layout.addWidget(expr, alignment=Qt.AlignmentFlag.AlignTop)
-        var_layout.addWidget(expr_scroll, stretch=5)
-        var_layout.addWidget(lineups, alignment=Qt.AlignmentFlag.AlignBottom)
-
-        filter_layout = QHBoxLayout()
-        filter_layout.addLayout(var_type_layout)
-        filter_layout.addLayout(var_layout)
-
-        self.central_layout.addRow(filter_layout)
-
-        self._remove_var.triggered.connect(self._var_widget.clear_variables)
-        self._remove_expr.triggered.connect(self._expr_widget.clear_expressions)
-        self._add_expr.triggered.connect(self._expr_widget.add_expression)
-        self._info_expr.triggered.connect(self._expr_widget.show_info)
+        context_menu.exec(self.mapToGlobal(position))
 
     @Slot()
-    def accept(self) -> None:
-        keywords = TextKeywords()
-        keywords.clear()
+    def edit_models(self) -> None:
+        if models := self.central_widget.get_selected_models():
+            self.started()
 
-        self._script.match_filter.variables = self._var_widget.variables
-        self._script.match_filter.expressions = self._expr_widget.expressions
-        self._script.match_filter.has_lineups = self._lineups_widget.is_checked()
+            for index, model in enumerate(models):
+                self.add_tab(model)
 
-        super().accept()
+                self.update_progress.emit(index, len(models))
+
+            self.finished()
+
+        else:
+            self.show_message(self.tr("Нет выбранных объектов"))
+
+    @asyncSlot()
+    async def delete_models(self) -> None:
+        if models := self.central_widget.get_selected_models():
+            self.started()
+
+            for index, model in enumerate(models, start=1):
+                flag = await self.db_context.filters.delete(id=model.id)
+                if flag:
+                    self.central_widget.delete_item(model)
+                else:
+                    _logger.error(f"Model (id={model.id}) - failed to delete")
+                    self.show_message(self.tr("Не удалось выполнить операцию"))
+
+                self.update_progress.emit(index, len(models))
+
+            self.finished()
+        else:
+            self.show_message(self.tr("Нет выбранных объектов"))
+
+    @asyncSlot()
+    async def remove_models(self) -> None:
+        if self.central_widget.rowCount():
+            flag = await self.db_context.filters.delete(True)
+            if flag:
+                self.central_widget.clear()
+            else:
+                _logger.error("Failed to remove models")
+                self.show_message(self.tr("Не удалось выполнить операцию"))
+        else:
+            self.show_message(self.tr("Нет объектов"))
 
     @Slot()
-    def reject(self) -> None:
-        keywords = TextKeywords()
-        keywords.clear()
+    def create_model(self) -> None:
+        league_filter = LeagueFilter()
+        match_details_filter = MatchDetailsFilter()
 
-        super().reject()
+        model = MatchFilterDBModel(
+            id=str(uuid.uuid4()),
+            description=str(),
+            match_code=MatchCode.FOOTBALL,
+            league_filter=league_filter.compress(),
+            match_details_filter=match_details_filter.compress()
+        )
 
-    @Slot()
-    def show_expr_context_menu(self, position: QPoint) -> None:
-        menu = QMenu(self)
-        menu.addAction(self._add_expr)
-        menu.addAction(self._info_expr)
-        menu.addSeparator()
-        menu.addAction(self._remove_expr)
-        menu.exec(self._expr_widget.mapToGlobal(position))
+        self.add_tab(model)
 
-    @Slot()
-    def show_var_context_menu(self, position: QPoint) -> None:
-        menu = QMenu(self)
-        menu.addAction(self._remove_var)
-        menu.exec(self._var_widget.mapToGlobal(position))
+    @asyncSlot()
+    async def _update_model(self, model: MatchFilterDBModel) -> None:
+        try:
+            flag = await self.db_context.filters.update(
+                {"id": model.id},
+                match_code=model.match_code,
+                description=model.description,
+                league_filter=model.league_filter,
+                match_details_filter=model.match_details_filter
+            )
+            if flag:
+                self.central_widget.update_item(model)
+            else:
+                _logger.error(f"Model (id={model.id}) - failed to update")
+                self.show_message(self.tr("Не удалось выполнить операцию"))
+        except Exception as exception:
+            _logger.exception(exception)
+
+    @asyncSlot()
+    async def _save_model(self, model: MatchFilterDBModel) -> None:
+        if self.central_widget.check_model(model):
+            await self._update_model(model)
+        else:
+            flag = await self.db_context.filters.add(
+                id=model.id,
+                description=model.description,
+                match_code=model.match_code,
+                league_filter=model.league_filter,
+                match_details_filter=model.match_details_filter
+            )
+
+            if flag:
+                self.central_widget.add_item(model)
+            else:
+                _logger.error(f"Model (id={model.id}) - failed to update")
+                self.show_message(self.tr("Не удалось выполнить операцию"))
+
+    @asyncSlot()
+    async def update_table(self, batch_size: int = 10) -> None:
+        self.started()
+
+        filters = await self.get_filters(batch_size)
+
+        self.central_widget.set_items(filters)
+
+        self.finished()
+
+        self.show_message(self.tr("Данные обновлены"))
+
+    def add_tab(self, model: MatchFilterDBModel) -> None:
+        widget = MatchFilterEditorWidget(model)
+        widget.save_model_signal.connect(self._save_model)
+
+        self.tab_widget.addTab(widget, model.id)
+        self.tab_widget.setVisible(True)
+        self._search_input.setEnabled(False)
+        self.central_widget.setEnabled(False)
+        self.enabled_actions(False)

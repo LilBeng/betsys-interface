@@ -16,7 +16,8 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QMenu
 )
-from betsys import Message, get_role_name, RoleCode, SportEventDriver, Signal, DriverCode
+from betsys import Message, get_role_name, RoleCode, SportEventDriver, Signal, DriverCode, MessageObjectCode, \
+    MatchDetails
 
 from src.utils.lang import AppLang
 from src.utils.service import BetSysService
@@ -88,9 +89,9 @@ class MessageBubble(QFrame):
 
 
 class MessageViewer(QDialog):
-    def __init__(self, signal: Signal, driver_code: DriverCode, parent: Optional[QWidget] = None):
+    def __init__(self, driver_code: DriverCode, parent: Optional[QWidget] = None):
         super().__init__(parent)
-        self._signal = signal
+
         self._driver_code = driver_code
 
         self.setWindowTitle(self.tr("Сообщения"))
@@ -123,36 +124,36 @@ class MessageViewer(QDialog):
         self.input_text.setPlaceholderText(self.tr("Введите ваше сообщение..."))
         self.input_text.setAcceptRichText(False)
         self.input_text.setStyleSheet("""
-            QTextEdit {
-                background-color: #252525;
-                border: 1px solid #333333;
-                border-radius: 12px;
-                padding: 10px;
-                color: #F0F0F0;
-                font-size: 14px;
-                selection-background-color: #444;
-            }
-            QTextEdit:focus {
-                border: 1px solid #555555;
-            }
-        """)
+                    QTextEdit {
+                        background-color: #252525;
+                        border: 1px solid #333333;
+                        border-radius: 12px;
+                        padding: 10px;
+                        color: #F0F0F0;
+                        font-size: 14px;
+                        selection-background-color: #444;
+                    }
+                    QTextEdit:focus {
+                        border: 1px solid #555555;
+                    }
+                """)
 
         self.add_button = QPushButton(self.tr("Добавить"))
         self.add_button.setDefault(True)
         self.add_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.add_button.setFixedSize(100, 36)
         self.add_button.setStyleSheet("""
-            QPushButton {
-                background-color: #3B82F6;
-                color: #FFFFFF;
-                border: none;
-                border-radius: 8px;
-                font-weight: bold;
-                font-size: 13px;
-            }
-            QPushButton:hover { background-color: #2563EB; }
-            QPushButton:pressed { background-color: #1D4ED8; }
-        """)
+                    QPushButton {
+                        background-color: #3B82F6;
+                        color: #FFFFFF;
+                        border: none;
+                        border-radius: 8px;
+                        font-weight: bold;
+                        font-size: 13px;
+                    }
+                    QPushButton:hover { background-color: #2563EB; }
+                    QPushButton:pressed { background-color: #1D4ED8; }
+                """)
         self.add_button.clicked.connect(self.add_message)
 
         self.clear_button = QPushButton(self.tr("Очистить"))
@@ -160,17 +161,17 @@ class MessageViewer(QDialog):
         self.clear_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.clear_button.setFixedSize(100, 36)
         self.clear_button.setStyleSheet("""
-            QPushButton {
-                background-color: #F87171;
-                color: #FFFFFF;
-                border: none;
-                border-radius: 8px;
-                font-weight: bold;
-                font-size: 13px;
-            }
-            QPushButton:hover { background-color: #EF4444; }
-            QPushButton:pressed { background-color: #DC2626; }
-        """)
+                    QPushButton {
+                        background-color: #F87171;
+                        color: #FFFFFF;
+                        border: none;
+                        border-radius: 8px;
+                        font-weight: bold;
+                        font-size: 13px;
+                    }
+                    QPushButton:hover { background-color: #EF4444; }
+                    QPushButton:pressed { background-color: #DC2626; }
+                """)
         self.clear_button.clicked.connect(self.clear_messages)
 
         button_layout = QVBoxLayout()
@@ -183,14 +184,16 @@ class MessageViewer(QDialog):
         main_layout.addWidget(self.scroll_area, 1)
         main_layout.addWidget(input_container, 0)
 
-        self.setUpdatesEnabled(False)
-        for msg in signal.messages:
-            self.add_message_bubble(msg)
-        self.setUpdatesEnabled(True)
-
         QTimer.singleShot(0, self.scroll_to_bottom)
 
         QShortcut(QKeySequence("Ctrl+Return"), self.input_text).activated.connect(self.add_message)
+
+    def scroll_to_bottom(self):
+        QTimer.singleShot(50, self._perform_scroll)
+
+    def _perform_scroll(self):
+        bar = self.scroll_area.verticalScrollBar()
+        bar.setValue(bar.maximum())
 
     def add_message_bubble(self, message: Message) -> None:
         bubble = MessageBubble(message, self)
@@ -210,6 +213,26 @@ class MessageViewer(QDialog):
         self.messages_layout.addWidget(container)
 
     def add_message(self) -> None:
+        ...
+
+    def clear_messages(self) -> None:
+        ...
+
+    def remove_widget(self, widget: QWidget, message: Message) -> None:
+        ...
+
+
+class SignalMessageViewer(MessageViewer):
+    def __init__(self, signal: Signal, driver_code: DriverCode, parent: Optional[QWidget] = None):
+        super().__init__(driver_code, parent)
+        self._signal = signal
+
+        self.setUpdatesEnabled(False)
+        for msg in signal.messages:
+            self.add_message_bubble(msg)
+        self.setUpdatesEnabled(True)
+
+    def add_message(self) -> None:
         content = self.input_text.toPlainText().strip()
         if not content:
             return
@@ -225,7 +248,8 @@ class MessageViewer(QDialog):
             None,
             self._driver_code,
             SportEventDriver.__name__,
-            SportEventDriver.add_signal_message.__name__,
+            SportEventDriver.add_message.__name__,
+            MessageObjectCode.SIGNAL,
             self._signal.signal_id,
             msg
         )
@@ -237,7 +261,8 @@ class MessageViewer(QDialog):
             None,
             self._driver_code,
             SportEventDriver.__name__,
-            SportEventDriver.clear_signal_messages.__name__,
+            SportEventDriver.clear_messages.__name__,
+            MessageObjectCode.SIGNAL,
             self._signal.signal_id,
         )
 
@@ -261,14 +286,79 @@ class MessageViewer(QDialog):
                 None,
                 self._driver_code,
                 SportEventDriver.__name__,
-                SportEventDriver.remove_signal_message.__name__,
+                SportEventDriver.remove_message.__name__,
+                MessageObjectCode.SIGNAL,
                 self._signal.signal_id,
                 message
             )
 
-    def scroll_to_bottom(self):
-        QTimer.singleShot(50, self._perform_scroll)
 
-    def _perform_scroll(self):
-        bar = self.scroll_area.verticalScrollBar()
-        bar.setValue(bar.maximum())
+class MatchMessageViewer(MessageViewer):
+    def __init__(self, details: MatchDetails, driver_code: DriverCode, parent: Optional[QWidget] = None):
+        super().__init__(driver_code, parent)
+        self._details = details
+
+        self.setUpdatesEnabled(False)
+        for msg in details.messages:
+            self.add_message_bubble(msg)
+        self.setUpdatesEnabled(True)
+
+    def add_message(self) -> None:
+        content = self.input_text.toPlainText().strip()
+        if not content:
+            return
+
+        msg = Message(role=RoleCode.USER, content=content, timestamp=datetime.now())
+        self._details.messages.append(msg)
+        self.add_message_bubble(msg)
+        self.input_text.clear()
+
+        self.scroll_to_bottom()
+
+        BetSysService.service.get_object(
+            None,
+            self._driver_code,
+            SportEventDriver.__name__,
+            SportEventDriver.add_message.__name__,
+            MessageObjectCode.MATCH,
+            self._details.match.match_id,
+            msg
+        )
+
+    def clear_messages(self) -> None:
+        self._details.messages.clear()
+
+        BetSysService.service.get_object(
+            None,
+            self._driver_code,
+            SportEventDriver.__name__,
+            SportEventDriver.clear_messages.__name__,
+            MessageObjectCode.MATCH,
+            self._details.match.match_id,
+        )
+
+        while self.messages_layout.count():
+            item = self.messages_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+            del item
+
+    def remove_widget(self, widget: QWidget, message: Message) -> None:
+        if message in self._details.messages:
+            widget.hide()
+            self.messages_layout.removeWidget(widget)
+            widget.deleteLater()
+
+            self._details.messages.remove(message)
+
+            BetSysService.service.get_object(
+                None,
+                self._driver_code,
+                SportEventDriver.__name__,
+                SportEventDriver.remove_message.__name__,
+                MessageObjectCode.MATCH,
+                self._details.match.match_id,
+                message
+            )

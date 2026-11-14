@@ -1,6 +1,6 @@
+import os
 import shutil
 import subprocess
-import os
 
 from betsys import __version__
 

@@ -18,7 +18,8 @@ from betsys import (
     BothToScoreBet,
     OneXTwoBet,
     DoubleChanceBet,
-    OddOrEvenBet, MatchCode
+    OddOrEvenBet,
+    MatchCode
 )
 
 from src.utils.lang import AppLang
@@ -36,6 +37,8 @@ class BaseBetLayout(QFormLayout):
 
         self._event_status_codes = QComboBox()
 
+        self._indexes = {}
+
         if match_code == MatchCode.FOOTBALL:
             for code in FEventStatusCode:
                 self._event_status_codes.addItem(
@@ -43,6 +46,8 @@ class BaseBetLayout(QFormLayout):
                     get_event_status_name(code, AppLang.code),
                     code
                 )
+
+                self._indexes[code] = self._event_status_codes.count() - 1
 
                 if not all_events:
                     break
@@ -54,6 +59,8 @@ class BaseBetLayout(QFormLayout):
                     code
                 )
 
+                self._indexes[code] = self._event_status_codes.count() - 1
+
                 if not all_events:
                     break
         elif match_code == MatchCode.VOLLEYBALL:
@@ -63,6 +70,8 @@ class BaseBetLayout(QFormLayout):
                     get_event_status_name(code, AppLang.code),
                     code
                 )
+
+                self._indexes[code] = self._event_status_codes.count() - 1
 
                 if not all_events:
                     break
@@ -74,6 +83,8 @@ class BaseBetLayout(QFormLayout):
                     code
                 )
 
+                self._indexes[code] = self._event_status_codes.count() - 1
+
                 if not all_events:
                     break
 
@@ -83,6 +94,8 @@ class BaseBetLayout(QFormLayout):
                     get_event_status_name(code, AppLang.code),
                     code
                 )
+
+                self._indexes[code] = self._event_status_codes.count() - 1
 
                 if not all_events:
                     break
@@ -94,11 +107,13 @@ class BaseBetLayout(QFormLayout):
                     code
                 )
 
+                self._indexes[code] = self._event_status_codes.count() - 1
+
                 if not all_events:
                     break
 
         if bet:
-            self._event_status_codes.setCurrentText(get_event_status_name(bet.event_status_code, AppLang.code))
+            self._event_status_codes.setCurrentIndex(self._indexes[bet.event_status_code])
 
         self.addRow(self.tr("Событие:"), self._event_status_codes)
 

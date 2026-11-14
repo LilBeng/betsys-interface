@@ -44,7 +44,8 @@ class CalculatorWidget(QWidget):
 
         self._bet_code = QComboBox(self)
         for bet_code in BetCode:
-            self._bet_code.addItem(get_total_bet_name(bet_code, AppLang.code), bet_code)
+            if bet_code >= 0:
+                self._bet_code.addItem(get_total_bet_name(bet_code, AppLang.code), bet_code)
 
         self._id.checkStateChanged.connect(self.change_id)
         self._priority.checkStateChanged.connect(self.change_priority)

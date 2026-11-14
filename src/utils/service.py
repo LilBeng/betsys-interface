@@ -14,7 +14,8 @@ from betsys import (
     Signal,
     get_driver_name,
     MatchDetails,
-    MatchCode, EventCode
+    MatchCode,
+    EventCode
 )
 from betsys.driver.base import Information
 from qasync import asyncSlot
@@ -22,6 +23,7 @@ from qasync import asyncSlot
 from src import CONFIG, DRIVER
 from src.dialogs.config import DAOConfigDialog, DriverConfigDialog
 from src.dialogs.date import DatePickerDialog
+from src.dialogs.filter import MatchFilterDAODialog
 from src.dialogs.league import LeagueDAODialog
 from src.dialogs.match import MatchDetailsDAODialog
 from src.dialogs.prompt import PromptDAODialog
@@ -46,7 +48,8 @@ class SportEventService(QObject):
     status_message = pysideSignal(str)
     update_progress = pysideSignal(int, int, DriverCode)
 
-    event = pysideSignal(EventCode, Signal, MatchDetails, DriverCode)
+    signal_event = pysideSignal(EventCode, Signal, MatchDetails, DriverCode)
+    match_event = pysideSignal(EventCode, MatchDetails, DriverCode)
 
     def __init__(
             self,
@@ -73,6 +76,17 @@ class SportEventService(QObject):
             if attr is prop:
                 return name
         return None
+
+    @staticmethod
+    def get_match_code(driver_code: DriverCode) -> Optional[MatchCode]:
+        if driver_code == DriverCode.FOOTBALL:
+            return MatchCode.FOOTBALL
+        elif driver_code == DriverCode.HOCKEY:
+            return MatchCode.HOCKEY
+        elif driver_code == DriverCode.VOLLEYBALL:
+            return MatchCode.VOLLEYBALL
+        else:
+            return None
 
     def _get_response(
             self,
@@ -120,10 +134,15 @@ class SportEventService(QObject):
             for response in signal_responses:
                 _logger.info(
                     f"Sender {response.sender} - get signal "
-                    f"(signal_id={response.signal.signal_id}, driver_code={response.driver_code})"
+                    f"(event_code={response.event_code}, "
+                    f"driver_code={response.driver_code}, "
+                    f"obj - {"signal" if bool(response.signal) else "match"})"
                 )
 
-                self.event.emit(response.event_code, response.signal, response.details, response.driver_code)
+                if response.signal:
+                    self.signal_event.emit(response.event_code, response.signal, response.details, response.driver_code)
+                else:
+                    self.match_event.emit(response.event_code, response.details, response.driver_code)
 
             progress_responses = worker.get_progress()
             for response in progress_responses:
@@ -370,13 +389,8 @@ class SportEventService(QObject):
         """
         flag, driver_code = result
         if flag:
-            if driver_code == DriverCode.FOOTBALL:
-                match_code = MatchCode.FOOTBALL
-            elif driver_code == DriverCode.HOCKEY:
-                match_code = MatchCode.HOCKEY
-            elif driver_code == DriverCode.VOLLEYBALL:
-                match_code = MatchCode.VOLLEYBALL
-            else:
+            match_code = self.get_match_code(driver_code)
+            if not match_code:
                 self.status_message.emit(self.tr("Не удалось получить данные"))
                 return None
 
@@ -674,6 +688,11 @@ class SportEventService(QObject):
     @Slot()
     def show_prompts_dialog(self) -> None:
         dialog = PromptDAODialog(self.db_context, parent=self.parent())
+        dialog.exec()
+
+    @Slot()
+    def show_filter_dialog(self) -> None:
+        dialog = MatchFilterDAODialog(self.db_context, parent=self.parent())
         dialog.exec()
 
 

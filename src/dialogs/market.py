@@ -29,7 +29,8 @@ class MarketWidget(QWidget):
 
         self._bet = QComboBox(self)
         for code in BetCode:
-            self._bet.addItem(get_total_bet_name(code, AppLang.code), code)
+            if code >= 0:
+                self._bet.addItem(get_total_bet_name(code, AppLang.code), code)
 
         self._bet.currentIndexChanged.connect(self._changed_bet)
 
