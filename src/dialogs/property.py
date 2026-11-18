@@ -224,6 +224,7 @@ class PromptDialog(BaseButtonDialog):
         self._home_name_flag = Switch(size=QSize(50, 25), checked=model.home_name_flag, parent=self)
         self._away_name_flag = Switch(size=QSize(50, 25), checked=model.away_name_flag, parent=self)
         self._match_date_flag = Switch(size=QSize(50, 25), checked=model.match_date_flag, parent=self)
+        self._statistics_flag = Switch(size=QSize(50, 25), checked=model.statistics_flag, parent=self)
         self._table_total_flag = Switch(size=QSize(50, 25), checked=model.table_total_flag, parent=self)
         self._table_home_flag = Switch(size=QSize(50, 25), checked=model.table_home_flag, parent=self)
         self._table_away_flag = Switch(size=QSize(50, 25), checked=model.table_away_flag, parent=self)
@@ -273,6 +274,11 @@ class PromptDialog(BaseButtonDialog):
         param_layout.addRow(self.tr("Наименование гостей:"), self._away_name_flag)
         param_layout.addRow(self.tr("Дата матча:"), self._match_date_flag)
 
+        statistic_layout = QFormLayout()
+        statistic_layout.setSpacing(10)
+        statistic_layout.setHorizontalSpacing(25)
+        statistic_layout.addRow(self.tr("Статистика:"), self._statistics_flag)
+
         table_layout = QFormLayout()
         table_layout.setSpacing(10)
         table_layout.setHorizontalSpacing(25)
@@ -307,6 +313,9 @@ class PromptDialog(BaseButtonDialog):
         lineups = QGroupBox(self.tr("Составы"), self)
         lineups.setLayout(lineups_layout)
 
+        statistics = QGroupBox(self.tr("Статистика"), self)
+        statistics.setLayout(statistic_layout)
+
         table = QGroupBox(self.tr("Таблицы"), self)
         table.setLayout(table_layout)
 
@@ -321,7 +330,7 @@ class PromptDialog(BaseButtonDialog):
         )
 
         # Устанавливаем всем
-        for group in [param, lineups, table, match]:
+        for group in [param, lineups, statistics, table, match]:
             group.setMinimumWidth(max_width)
 
         top_layout = QHBoxLayout()
@@ -333,6 +342,7 @@ class PromptDialog(BaseButtonDialog):
         bottom_layout.addWidget(match)
 
         self.central_layout.addRow(top_layout)
+        self.central_layout.addRow(statistics)
         self.central_layout.addRow(bottom_layout)
 
         self.setup_wheel_filter(self)
@@ -368,6 +378,7 @@ class PromptDialog(BaseButtonDialog):
         self._model.home_name_flag = self._home_name_flag.is_checked()
         self._model.away_name_flag = self._away_name_flag.is_checked()
         self._model.match_date_flag = self._match_date_flag.is_checked()
+        self._model.statistics_flag = self._statistics_flag.is_checked()
         self._model.table_total_flag = self._table_total_flag.is_checked()
         self._model.is_playing_teams = self._is_playing_teams.is_checked()
         self._model.table_home_flag = self._table_home_flag.is_checked()

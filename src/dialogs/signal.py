@@ -146,10 +146,8 @@ class CalculatorWidget(QWidget):
             for index, script in enumerate(scripts):
                 self._scripts.addItem(icons.get(script.match_code), script.id, script.id)
                 self._scripts.setItemData(index, script.description, Qt.ItemDataRole.ToolTipRole)
-        else:
-            self._id.setCheckState(Qt.CheckState.Unchecked)
-            self._id.setEnabled(False)
-            self.change_id(Qt.CheckState.Unchecked)
+
+        self._scripts.addItem(QIcon(":/resources/icons/info.png"), self.tr("Нет"), None)
 
         self._count.setText(self.tr("Общее количество: {}").format(count_signals))
 

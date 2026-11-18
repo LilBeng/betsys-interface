@@ -188,11 +188,11 @@ class SportEventService(QObject):
         else:
             self.status_message.emit(self.tr("Дождитесь завершения предыдущего действия"))
 
-    def _remove_signal(self, signal_id: str, driver_code: DriverCode) -> None:
+    def _remove_signals(self, signal_ids: list[str], driver_code: DriverCode) -> None:
         """
         Удалить сигнал.
 
-        :param signal_id: Идентификатор сигнала.
+        :param signal_ids: Идентификатор сигнала.
         :param driver_code: Код драйвера.
         """
         worker = self.workers.get(driver_code)
@@ -200,15 +200,15 @@ class SportEventService(QObject):
             response = self._get_response(
                 worker,
                 CheckPoint.__name__,
-                CheckPoint.remove_signal.__name__,
-                signal_id
+                CheckPoint.remove_signals.__name__,
+                signal_ids
             )
             if response:
-                _logger.info(f"Signal (signal id={signal_id}, driver code={driver_code}) deleted")
+                _logger.info(f"Signals (signal ids={signal_ids}, driver code={driver_code}) deleted")
             else:
-                _logger.info(f"Signal (signal id={signal_id}, driver code={driver_code}) not deleted")
+                _logger.info(f"Signals (signal id={signal_ids}, driver code={driver_code}) not deleted")
         else:
-            _logger.info(f"Signal (signal id={signal_id}, driver code={driver_code}) not deleted")
+            _logger.info(f"Signals (signal id={signal_ids}, driver code={driver_code}) not deleted")
 
     @Slot()
     def _run(self, result: tuple[bool, DriverCode, bool]) -> None:
@@ -294,6 +294,8 @@ class SportEventService(QObject):
 
                             response.result.save(file_path)
 
+                            worker.driver = None
+
                             self.update_progress.emit(1, 1, driver_code)
 
                             self.status_message.emit(
@@ -324,6 +326,8 @@ class SportEventService(QObject):
                     SportEventDriver.__name__,
                     SportEventDriver.stop.__name__,
                 )
+
+                worker.driver = None
 
                 self.status_message.emit(
                     self.tr("Драйвер «{}» остановлен").format(get_driver_name(driver_code, AppLang.code))
@@ -567,8 +571,8 @@ class SportEventService(QObject):
             self.get_name(SportEventDriver, SportEventDriver.checkpoint)
         )
 
-    def remove_signal(self, signal_id: str, driver_code: DriverCode) -> None:
-        self._start_thread(None, self._remove_signal, signal_id, driver_code)
+    def remove_signals(self, callback: Callable, signal_ids: list[str], driver_code: DriverCode) -> None:
+        self._start_thread(callback, self._remove_signals, signal_ids, driver_code)
 
     def fing_signal_ids(self, callback: Callable) -> None:
         """
@@ -585,8 +589,9 @@ class SportEventService(QObject):
                     "signals"
                 )
                 if response and response.result:
-                    for signal_id in response.result:
-                        signals_id.append(signal_id)
+                    for signal_id, signal in response.result.items():
+                        if signal.is_active:
+                            signals_id.append(signal_id)
 
             return signals_id
 

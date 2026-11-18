@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 from datetime import datetime
 from typing import Optional
 
@@ -11,7 +12,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QMenu,
     QFrame,
-    QScrollArea
+    QScrollArea, QCheckBox
 )
 from betsys import (
     Signal,
@@ -104,7 +105,7 @@ class SignalBorder(QFrame):
         :param driver_code: Код драйвера.
         """
         widget = SignalWidget(signal, match_details, driver_code, self)
-        widget.delete_signal.connect(self._delete_signal)
+        widget.delete_signal.connect(self._delete_signals)
         widget.invert_signal.connect(self.invert_signal)
         widget.print_text.connect(self.print_text.emit)
         widget.print_prompts.connect(self._print_prompts_signal)
@@ -159,28 +160,27 @@ class SignalBorder(QFrame):
             self.complete_signal(signal, match_details, driver_code)
 
     @Slot()
-    def _delete_signal(self, signal_id: str, driver_code: DriverCode) -> None:
-        BetSysService.service.remove_signal(signal_id, driver_code)
+    def _delete_signals(self, signal_ids: list[str], driver_code: DriverCode) -> None:
+        def complete() -> None:
+            to_remove = []
+            for index in range(self._signal_layout.count()):
+                item = self._signal_layout.itemAt(index)
+                if item is None:
+                    continue
+                widget = item.widget()
+                if isinstance(widget, SignalWidget) and widget.signal_id in signal_ids:
+                    to_remove.append(widget)
 
-        for index in range(self._signal_layout.count()):
-            item = self._signal_layout.itemAt(index)
-            widget = item.widget()
-            if isinstance(widget, SignalWidget):
-                if signal_id == widget.signal_id:
-                    self._signal_layout.takeAt(index)
-                    widget.deleteLater()
+            for widget in to_remove:
+                self._signal_layout.removeWidget(widget)
+                widget.setParent(None)
+                widget.deleteLater()
 
-                    self._signal_layout.invalidate()
-                    self._signal_layout.update()
-                    self._signal_layout.activate()
+            self._signal_layout.invalidate()
 
-                    break
+            self.update_tab_widget.emit(bool(self._signal_layout.count()))
 
-        self.show_message.emit(
-            self.tr("Сигнал драйвера «{}» удален").format(get_driver_name(driver_code, AppLang.code))
-        )
-
-        self.update_tab_widget.emit(bool(self._signal_layout.count()))
+        BetSysService.service.remove_signals(complete, signal_ids, driver_code)
 
     @Slot()
     def delete_signal(self, signal: Signal, match_details: MatchDetails, driver_code: DriverCode) -> None:
@@ -212,18 +212,61 @@ class SignalBorder(QFrame):
         self.update_tab_widget.emit(bool(self._signal_layout.count()))
 
     @Slot()
+    def delete_signals(self) -> None:
+        if self._signal_layout.items:
+            signal_ids = defaultdict(list)
+            for item in self._signal_layout.items[:]:
+                widget = item.widget()
+                if isinstance(widget, SignalWidget):
+                    if widget.is_checked:
+                        signal_ids[widget.driver_code].append(widget.signal_id)
+
+            if signal_ids:
+                for driver_code, ids in signal_ids.items():
+                    self._delete_signals(ids, driver_code)
+
+                self.show_message.emit(self.tr(f"Выбранные сигналы удалены"))
+            else:
+                self.show_message.emit(self.tr("Сигналы не выбраны"))
+        else:
+            self.show_message.emit(self.tr(f"Сигналы не найдены"))
+
+    def _select(self, flag: bool) -> None:
+        if self._signal_layout.items:
+            for item in self._signal_layout.items[:]:
+                widget = item.widget()
+                if isinstance(widget, SignalWidget):
+                    widget.set_checked(flag)
+        else:
+            self.show_message.emit(self.tr(f"Сигналы не найдены"))
+
+    @Slot()
+    def select_all(self) -> None:
+        self._select(True)
+
+    @Slot()
+    def unselect_all(self) -> None:
+        self._select(False)
+
+    @Slot()
     def remove_finished_signals(self) -> None:
         BetSysService.service.fing_signal_ids(self._remove_non_active_signals)
 
     @Slot()
     def print_signals(self) -> None:
         if self._signal_layout.items:
+            count = 0
             for item in self._signal_layout.items[:]:
                 widget = item.widget()
                 if isinstance(widget, SignalWidget):
-                    self.print_text.emit(f"{widget.text}")
+                    if widget.is_checked:
+                        self.print_text.emit(f"{widget.text}")
+                        count += 1
 
-            self.show_message.emit(self.tr(f"Информация выведена в консоль"))
+            if count:
+                self.show_message.emit(self.tr(f"Информация выведена в консоль"))
+            else:
+                self.show_message.emit(self.tr("Сигналы не выбраны"))
         else:
             self.show_message.emit(self.tr(f"Сигналы не найдены"))
 
@@ -327,7 +370,7 @@ class SignalWidget(QFrame):
     """
     Виджет сигнала
     """
-    delete_signal = pysideSignal(str, DriverCode)
+    delete_signal = pysideSignal(list, DriverCode)
     invert_signal = pysideSignal(str, DriverCode)
 
     print_text = pysideSignal(str)
@@ -376,6 +419,9 @@ class SignalWidget(QFrame):
             color=GRAPHITE,
             parent=self
         )
+
+        self._check_box = QCheckBox(self)
+        self._top_widget.central_layout.addWidget(self._check_box)
 
         self._status_label = QLabel()
 
@@ -437,18 +483,29 @@ class SignalWidget(QFrame):
     def text(self) -> str:
         return format_signal(self._signal, self._match_details, AppLang.code)
 
+    @property
+    def is_checked(self) -> bool:
+        return self._check_box.isChecked()
+
     @Slot()
     def show_context_menu(self, position: QPoint) -> None:
         menu = QMenu(self)
 
+        if self.is_checked:
+            checked = menu.addAction(QIcon(":/resources/icons/minus.png"), self.tr("Отменить"))
+        else:
+            checked = menu.addAction(QIcon(":/resources/icons/plus.png"), self.tr("Выбрать"))
+
+        menu.addSeparator()
+
         delete = menu.addAction(QIcon(":/resources/icons/delete.png"), self.tr("Удалить"))
-        print_data = menu.addAction(QIcon(":/resources/icons/console.png"), self.tr("Вывести сигнал в консоль"))
+        print_data = menu.addAction(QIcon(":/resources/icons/console.png"), self.tr("Вывести информацию в консоль"))
         menu.addSeparator()
         show_match = menu.addAction(QIcon(":/resources/icons/info.png"), self.tr("Показать информацию о матче"))
         show_market = menu.addAction(QIcon(":/resources/icons/info.png"), self.tr("Показать коэффициенты"))
         if self._signal.is_active:
             menu.addSeparator()
-            invert_signal = menu.addAction(QIcon(":/resources/icons/invert.png"), self.tr("Инвертировать сигнал"))
+            invert_signal = menu.addAction(QIcon(":/resources/icons/invert.png"), self.tr("Инвертировать"))
             invert_signal.triggered.connect(self._invert_signal)
 
         menu.addSeparator()
@@ -460,9 +517,11 @@ class SignalWidget(QFrame):
         print_prompts.triggered.connect(self._print_prompts)
 
         menu.addSeparator()
+
         show_message = menu.addAction(QIcon(":/resources/icons/dialog.png"), self.tr("Показать сообщения"))
         show_message.triggered.connect(self._show_dialog)
 
+        checked.triggered.connect(self._set_checked)
         delete.triggered.connect(self._delete)
         print_data.triggered.connect(self._print_data)
         show_match.triggered.connect(self._show_match)
@@ -476,7 +535,7 @@ class SignalWidget(QFrame):
 
     @Slot()
     def _delete(self) -> None:
-        self.delete_signal.emit(self.signal_id, self._driver_code)
+        self.delete_signal.emit([self.signal_id], self._driver_code)
 
     @Slot()
     def _print_data(self) -> None:
@@ -508,6 +567,10 @@ class SignalWidget(QFrame):
     def _run_analyse(self) -> None:
         self.run_analyse.emit(self._signal.signal_id, self.driver_code)
 
+    @Slot()
+    def _set_checked(self) -> None:
+        self.set_checked(not self.is_checked)
+
     def _set_status(self, match_details: MatchDetails) -> None:
         status = get_global_event_status_name(match_details.match.match_summary.event_status_code, AppLang.code)
 
@@ -524,6 +587,9 @@ class SignalWidget(QFrame):
             current_time = ""
 
         self._status_label.setText(f"{status}{score}{current_time}")
+
+    def set_checked(self, flag: bool) -> None:
+        self._check_box.setChecked(flag)
 
     def update_data(self, signal: Signal, match_details: MatchDetails) -> None:
         self._signal = signal

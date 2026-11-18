@@ -196,7 +196,7 @@ class WorkerDriverProcess(object):
 
         return call_id
 
-    def start(self):
+    def start(self) -> None:
         """
         Начать процесс.
         """

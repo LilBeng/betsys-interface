@@ -312,14 +312,27 @@ class DriverToolBar(QToolBar):
             )
             self._signal_menu = QMenu(self._signal_button)
 
+            self.select_all_signals = self._signal_menu.addAction(
+                QIcon(":/resources/icons/plus.png"),
+                self.tr("Выбрать все"),
+            )
+            self.unselect_all_signals = self._signal_menu.addAction(
+                QIcon(":/resources/icons/minus.png"),
+                self.tr("Снять выделение"),
+            )
+            self._signal_menu.addSeparator()
+            self.delete_signals = self._signal_menu.addAction(
+                QIcon(":/resources/icons/delete.png"),
+                self.tr("Удалить выбранные"),
+            )
+            self.print_signals = self._signal_menu.addAction(
+                QIcon(":/resources/icons/console.png"),
+                self.tr("Вывести в консоль выбранные")
+            )
+            self._signal_menu.addSeparator()
             self.remove_finished_signals = self._signal_menu.addAction(
                 QIcon(":/resources/icons/remove.png"),
                 self.tr("Очистить завершенные"),
-            )
-
-            self.print_signals = self._signal_menu.addAction(
-                QIcon(":/resources/icons/console.png"),
-                self.tr("Вывести сигналы в консоль")
             )
             self._signal_button.setMenu(self._signal_menu)
             self._signal_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)

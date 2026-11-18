@@ -23,7 +23,7 @@ from betsys import (
     BetCode,
     MatchStatusCode,
     SignalTypeCode,
-    EventCode, Signal
+    EventCode, Signal, get_driver_name
 )
 from betsys.driver.base import Information, SportEventDriver
 from qasync import asyncSlot
@@ -153,12 +153,19 @@ class InformationWidget(QFrame):
             else:
                 self.show_message.emit(self.tr("Информация не получена"))
 
-        BetSysService.service.get_object(
-            _show_info,
-            self.driver_code,
-            SportEventDriver.__name__,
-            SportEventService.get_name(SportEventDriver, SportEventDriver.information)
-        )
+        if BetSysService.service.workers.get(self.driver_code):
+            BetSysService.service.get_object(
+                _show_info,
+                self.driver_code,
+                SportEventDriver.__name__,
+                SportEventService.get_name(SportEventDriver, SportEventDriver.information)
+            )
+        else:
+            self.show_message.emit(
+                self.tr("Для выполнения действия инициализируйте драйвер «{}»").format(
+                    get_driver_name(self.driver_code, AppLang.code)
+                )
+            )
 
     @Slot()
     def update_table_item(self, code: EventCode, details: MatchDetails, driver_code: DriverCode) -> None:
@@ -175,6 +182,12 @@ class InformationWidget(QFrame):
                 case EventCode.RESUMED:
                     self._table.add_item(details)
 
+            data = self._filters.currentData()
+            if data:
+                self._table.filter_matches(data)
+            else:
+                self._table.show_all_matches()
+
     @Slot()
     def update_table(self) -> None:
         def _update_table(match_details: dict[str, MatchDetails]) -> None:
@@ -187,12 +200,19 @@ class InformationWidget(QFrame):
                 else:
                     self._table.show_all_matches()
 
-        BetSysService.service.get_object(
-            _update_table,
-            self.driver_code,
-            CheckPoint.__name__,
-            "match_details",
-        )
+        if BetSysService.service.workers.get(self.driver_code):
+            BetSysService.service.get_object(
+                _update_table,
+                self.driver_code,
+                CheckPoint.__name__,
+                "match_details",
+            )
+        else:
+            self.show_message.emit(
+                self.tr("Для выполнения действия инициализируйте драйвер «{}»").format(
+                    get_driver_name(self.driver_code, AppLang.code)
+                )
+            )
 
     @Slot()
     def print_info(self) -> None:
@@ -206,12 +226,19 @@ class InformationWidget(QFrame):
 
             self.show_message.emit(self.tr("Операция выполнена"))
 
-        BetSysService.service.get_object(
-            _print_info,
-            self.driver_code,
-            CheckPoint.__name__,
-            "consumed_match_ids",
-        )
+        if BetSysService.service.workers.get(self.driver_code):
+            BetSysService.service.get_object(
+                _print_info,
+                self.driver_code,
+                CheckPoint.__name__,
+                "consumed_match_ids",
+            )
+        else:
+            self.show_message.emit(
+                self.tr("Для выполнения действия инициализируйте драйвер «{}»").format(
+                    get_driver_name(self.driver_code, AppLang.code)
+                )
+            )
 
     @Slot()
     def show_context_menu(self, position: QPoint) -> None:
@@ -311,14 +338,21 @@ class InformationWidget(QFrame):
 
     @Slot()
     def save_checkpoint(self) -> None:
-        file_path, _ = QFileDialog.getSaveFileName(
-            self.parent(),
-            self.tr("Сохранить файл"),
-            QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation),
-            self.tr("Файлы контрольной точки (*.cp)")
-        )
-        if file_path:
-            BetSysService.service.save_checkpoint(file_path, self._driver_code)
+        if BetSysService.service.workers.get(self.driver_code):
+            file_path, _ = QFileDialog.getSaveFileName(
+                self.parent(),
+                self.tr("Сохранить файл"),
+                QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation),
+                self.tr("Файлы контрольной точки (*.cp)")
+            )
+            if file_path:
+                BetSysService.service.save_checkpoint(file_path, self._driver_code)
+        else:
+            self.show_message.emit(
+                self.tr("Для выполнения действия инициализируйте драйвер «{}»").format(
+                    get_driver_name(self.driver_code, AppLang.code)
+                )
+            )
 
     @Slot()
     def show_match(self) -> None:

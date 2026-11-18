@@ -354,6 +354,9 @@ class MainWindow(QMainWindow):
 
             BetSysService.service.signal_event.connect(self._signal_border.event.emit)
 
+            self.driver_tool_bar.select_all_signals.triggered.connect(self._signal_border.select_all)
+            self.driver_tool_bar.unselect_all_signals.triggered.connect(self._signal_border.unselect_all)
+            self.driver_tool_bar.delete_signals.triggered.connect(self._signal_border.delete_signals)
             self.driver_tool_bar.remove_finished_signals.triggered.connect(self._signal_border.remove_finished_signals)
             self.driver_tool_bar.print_signals.triggered.connect(self._signal_border.print_signals)
 
@@ -512,21 +515,14 @@ class MainWindow(QMainWindow):
 
     @asyncSlot()
     async def show_information(self, driver_code: DriverCode) -> None:
-        if BetSysService.service.workers.get(driver_code):
-            for index in range(self._tab_widget.count()):
-                widget = self._tab_widget.widget(index)
-                if isinstance(widget, InformationWidget):
-                    if widget.driver_code == driver_code:
-                        self.show_message(self.tr("Вкладка с информацией уже открыта"))
-                        return None
+        for index in range(self._tab_widget.count()):
+            widget = self._tab_widget.widget(index)
+            if isinstance(widget, InformationWidget):
+                if widget.driver_code == driver_code:
+                    self.show_message(self.tr("Вкладка с информацией уже открыта"))
+                    return None
 
-            await self.add_tab(driver_code)
-        else:
-            self.show_message(
-                self.tr("Для выполнения действия инициализируйте драйвер «{}»").format(
-                    get_driver_name(driver_code, AppLang.code)
-                )
-            )
+        await self.add_tab(driver_code)
 
     @asyncSlot()
     async def add_tab(self, driver_code: DriverCode) -> None:

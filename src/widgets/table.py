@@ -103,13 +103,15 @@ class BaseTableWidget(QTableWidget):
         :return: Список сценариев.
         """
         models = []
-        for (min_range, max_range) in [(ranges.topRow(), ranges.bottomRow()) for ranges in self.selectedRanges()]:
-            for index in range(min_range, max_range + 1):
-                item = self.item(index, 0)
+        for ranges in self.selectedRanges():
+            for row in range(ranges.topRow(), ranges.bottomRow() + 1):
+                if self.isRowHidden(row):
+                    continue
+                item = self.item(row, 0)
                 if item:
                     models.append(item.data(Qt.ItemDataRole.UserRole))
                 else:
-                    _logger.error(f"Item not found (row index {index})")
+                    _logger.error(f"Item not found (row index {row})")
         return models
 
     def get_row_index(self, model: Any) -> Optional[int]:
@@ -129,6 +131,8 @@ class BaseTableWidget(QTableWidget):
                 _logger.error(f"Item not found (row index {row})")
 
     def set_items(self, models: list[Any]) -> None:
+        self.setSortingEnabled(False)
+
         self.clear()
 
         for index, model in enumerate(models, start=1):
@@ -136,6 +140,8 @@ class BaseTableWidget(QTableWidget):
 
             if index == 1 or index % 10 == 0 or index == len(models):
                 self.update_progress.emit(index, len(models))
+
+        self.setSortingEnabled(True)
 
     def check_model(self, model: Any) -> bool:
         for row_index in range(self.rowCount()):
@@ -146,6 +152,8 @@ class BaseTableWidget(QTableWidget):
         return False
 
     def filter_table_rows(self, search_text: str) -> None:
+        self.setSortingEnabled(False)
+
         for row in range(self.rowCount()):
             found = False
             for col in range(self.columnCount()):
@@ -155,6 +163,8 @@ class BaseTableWidget(QTableWidget):
                     break
 
             self.setRowHidden(row, not found)
+
+        self.setSortingEnabled(True)
 
     def show_all_rows(self) -> None:
         for row in range(self.rowCount()):
@@ -459,11 +469,8 @@ class MatchTableWidget(BaseTableWidget):
             self.viewport().update()
 
             def clear():
-                try:
-                    self._delegate.highlighted_ids.pop(model.match.match_id, None)
-                    self.viewport().update()
-                finally:
-                    pass
+                self._delegate.highlighted_ids.pop(model.match.match_id, None)
+                self.viewport().update()
 
             QTimer.singleShot(3000, clear)
 
